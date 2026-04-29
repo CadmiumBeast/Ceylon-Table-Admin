@@ -14,7 +14,13 @@ Route::get('/', function () {
 Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::resource('users', UserController::class)->except(['show' ]);
-    
+
+    //Table routes
+    Route::get('/tables', [\App\Http\Controllers\TableController::class, 'index'])->name('table.index');
+    Route::get('/tables/create', [\App\Http\Controllers\TableController::class, 'create'])->name('table.create');
+    Route::post('tables/{id}/disable', [\App\Http\Controllers\TableController::class, 'disable'])->name('table.disable');
+    Route::post('tables/{id}/enable', [\App\Http\Controllers\TableController::class, 'enable'])->name('table.enable');
+
 });
 
 Route::middleware(['auth', 'user-access:customer'])->group(function () {
