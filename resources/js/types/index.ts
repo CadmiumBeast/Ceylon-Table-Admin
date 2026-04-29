@@ -32,6 +32,14 @@ export interface User {
     id: number;
     name: string;
     email: string;
+    type: 'customer' | 'admin' | 'chef' | 'staff';
+    customer?: {
+        first_name: string;
+        last_name: string;
+        phone_number: string;
+        address: string | null;
+        date_of_birth: string | null;
+    } | null;
     avatar?: string;
     email_verified_at: string | null;
     created_at: string;

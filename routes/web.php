@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -11,7 +13,8 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
+    Route::resource('users', UserController::class)->except(['show' ]);
+    
 });
 
 Route::middleware(['auth', 'user-access:customer'])->group(function () {

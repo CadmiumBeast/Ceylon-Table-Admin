@@ -13,7 +13,16 @@ return new class extends Migration
     {
         Schema::create('customers', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('user_id')->unique();
+            $table->string('first_name');
+            $table->string('last_name');
+            $table->string('phone_number')->unique();
+            $table->text('address')->nullable();
+            $table->date('date_of_birth')->nullable();
             $table->timestamps();
+
+
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 
