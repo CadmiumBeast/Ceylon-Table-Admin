@@ -1,0 +1,96 @@
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import AppLayout from '@/layouts/app-layout';
+import { type BreadcrumbItem } from '@/types';
+import { Head, Link } from '@inertiajs/react';
+
+type CategoryRecord = {
+    id: number;
+    name: string;
+    description?: string;
+    is_active: boolean;
+    created_at: string;
+};
+
+interface CategoriesIndexProps {
+    categories: CategoryRecord[];
+}
+
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Categories',
+        href: '/categories',
+    },
+];
+
+export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
+    return (
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Categories" />
+
+            <div className="space-y-6 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h1 className="text-2xl font-semibold">Categories</h1>
+                        <p className="text-sm text-muted-foreground">Manage product categories.</p>
+                    </div>
+                    <Button asChild>
+                        <Link href={route('categories.create')}>Create Category</Link>
+                    </Button>
+                </div>
+
+                <div className="overflow-x-auto rounded-lg border bg-card shadow-xs">
+                    <table className="w-full min-w-[720px] text-sm">
+                        <thead className="bg-muted/40 text-left">
+                            <tr>
+                                <th className="px-4 py-3 font-medium">Name</th>
+                                <th className="px-4 py-3 font-medium">Description</th>
+                                <th className="px-4 py-3 font-medium">Active</th>
+                                <th className="px-4 py-3 font-medium">Created</th>
+                                <th className="px-4 py-3 font-medium text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {categories.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                                        No categories found.
+                                    </td>
+                                </tr>
+                            ) : (
+                                categories.map((cat) => (
+                                    <tr key={cat.id} className="border-t">
+                                        <td className="px-4 py-3 font-medium">{cat.name}</td>
+                                        <td className="px-4 py-3">{cat.description ?? '—'}</td>
+                                        <td className="px-4 py-3">
+                                            <Badge variant={cat.is_active ? 'default' : 'destructive'} className="capitalize">
+                                                {cat.is_active ? 'Active' : 'Disabled'}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-3 text-muted-foreground">{new Date(cat.created_at).toLocaleString()}</td>
+                                        <td className="px-4 py-3 text-right">
+                                            <Button variant="outline" size="sm" asChild>
+                                                <Link href={route('categories.edit', cat.id)}>Edit</Link>
+                                            </Button>
+                                            <span className="ml-2">
+                                                <Button variant={cat.is_active ? 'destructive' : 'default'} size="sm" asChild>
+                                                    <Link
+                                                        href={route(cat.is_active ? 'categories.disable' : 'categories.enable', cat.id)}
+                                                        method="post"
+                                                        as="button"
+                                                    >
+                                                        {cat.is_active ? 'Disable' : 'Enable'}
+                                                    </Link>
+                                                </Button>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </AppLayout>
+    );
+}

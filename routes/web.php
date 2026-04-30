@@ -21,6 +21,12 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::post('tables/{id}/disable', [\App\Http\Controllers\TableController::class, 'disable'])->name('table.disable');
     Route::post('tables/{id}/enable', [\App\Http\Controllers\TableController::class, 'enable'])->name('table.enable');
 
+    // Category routes
+    Route::resource('categories', \App\Http\Controllers\CategoryController::class)->except(['show']);
+    Route::post('categories/{id}/disable', [\App\Http\Controllers\CategoryController::class, 'disable'])->name('categories.disable');
+    Route::post('categories/{id}/enable', [\App\Http\Controllers\CategoryController::class, 'enable'])->name('categories.enable');
+
+
 });
 
 Route::middleware(['auth', 'user-access:customer'])->group(function () {
