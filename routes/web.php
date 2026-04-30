@@ -26,7 +26,10 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::post('categories/{id}/disable', [\App\Http\Controllers\CategoryController::class, 'disable'])->name('categories.disable');
     Route::post('categories/{id}/enable', [\App\Http\Controllers\CategoryController::class, 'enable'])->name('categories.enable');
 
-
+    // Item routes
+    Route::resource('items', \App\Http\Controllers\ItemController::class)->except(['show']);
+    Route::post('items/{item}/unavailable', [\App\Http\Controllers\ItemController::class, 'unavailable'])->name('items.unavailable');
+    Route::post('items/{item}/available', [\App\Http\Controllers\ItemController::class, 'available'])->name('items.available');
 });
 
 Route::middleware(['auth', 'user-access:customer'])->group(function () {
