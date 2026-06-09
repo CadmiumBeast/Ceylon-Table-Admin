@@ -21,4 +21,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/cart/items', [\App\Http\Controllers\Api\ApiController::class, 'addCartItem']);
     Route::delete('/cart/items/{cartItemId}', [\App\Http\Controllers\Api\ApiController::class, 'removeCartItem']);
     Route::get('/cart/{cartId}/items', [\App\Http\Controllers\Api\ApiController::class, 'getCartItems']);
+
+    Route::post('/place-order', [\App\Http\Controllers\Api\ApiController::class, 'placeOrder']);
 });

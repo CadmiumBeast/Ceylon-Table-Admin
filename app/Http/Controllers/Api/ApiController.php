@@ -127,4 +127,85 @@ class ApiController extends Controller
 
         return response()->json($groupedItems);
     }
+
+    //Order
+    public function placeOrder(Request $request){
+        try{
+            $cart_id = $request->get('cart_id');
+            $payment_method = $request->get('payment_method');
+            $discount = $request->get('discount', 0);
+
+            $total_price = 0;
+            $subtotal = 0;
+
+            $cart = \App\Models\Cart::find($cart_id);
+            if (!$cart) {
+                return response()->json(['error' => 'Cart not found'], 404);
+            }
+
+            //last order number
+            $lastOrder = \App\Models\Order::orderBy('id', 'desc')->first();
+            if ($lastOrder) {
+                $lastOrderNumber = $lastOrder->order_number;
+                $lastOrderNumber = str_replace('CTB-', '', $lastOrderNumber);
+                $lastOrderNumber = intval($lastOrderNumber);
+                $order_number = 'CTB-' . str_pad($lastOrderNumber + 1, 6, '0', STR_PAD_LEFT);
+            } else {
+                $order_number = 'CTB-000001';
+            }
+
+
+            $order = \App\Models\Order::create([
+                'user_id' => $cart->user_id,
+                'table_id' => $cart->table_id,
+                'payment_method' => $payment_method,
+                'payment_status' => 'pending',
+                'discount' => $discount,
+                'order_number' => $order_number,
+                'order_type' => $cart->table_id ? 'dine-in' : 'takeaway',
+                'total_price' => 0, // Will be updated later
+                'subtotal' => 0, // Will be updated later
+            ]);
+
+            // Group cart items by item_id and sum quantities
+            $groupedItems = $cart->items->groupBy('item_id')->map(function ($items) {
+                return [
+                    'item_id' => $items->first()->item_id,
+                    'quantity' => $items->sum('quantity'),
+                    'price' => $items->first()->item->price,
+                ];
+            })->values();
+
+            foreach ($groupedItems as $groupedItem) {
+                $total_price += $groupedItem['quantity'] * $groupedItem['price'];
+                $subtotal += $groupedItem['quantity'] * $groupedItem['price'];
+                \App\Models\OrderItem::create([
+                    'order_id' => $order->id,
+                    'item_id' => $groupedItem['item_id'],
+                    'quantity' => $groupedItem['quantity'],
+                    'price' => $groupedItem['price'],
+                ]);
+            }
+
+            $total_price = $subtotal - $discount;
+
+            $order->update([
+                'total_price' => $total_price,
+                'subtotal' => $subtotal,
+            ]);
+
+            $cart->items()->delete();
+                if ($cart->table_id) {
+                    $table = \App\Models\Table::find($cart->table_id);
+                    if ($table) {
+                        $table->update(['is_available' => false]);
+                    }
+                }
+            return response()->json($order, 201);
+
+        }catch(\Exception $e){
+            \Log::error($e->getMessage());
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
+    }
 }
