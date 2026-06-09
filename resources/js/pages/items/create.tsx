@@ -19,6 +19,7 @@ export default function CreateItem({ categories }: { categories: { id: number; n
         description: '',
         price: '',
         category_id: '',
+        quantity: '',
     });
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -52,6 +53,7 @@ export default function CreateItem({ categories }: { categories: { id: number; n
         form.append('description', formData.description);
         form.append('price', formData.price);
         form.append('category_id', formData.category_id);
+        form.append('quantity', formData.quantity);
         if (imageFile) {
             form.append('image', imageFile);
         }
@@ -96,6 +98,12 @@ export default function CreateItem({ categories }: { categories: { id: number; n
                         <Label htmlFor="price">Price</Label>
                         <Input id="price" name="price" value={formData.price} onChange={handleChange} required />
                         <InputError message={errors.price} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="quantity">Quantity</Label>
+                        <Input id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} required />
+                        <InputError message={errors.quantity} />
                     </div>
 
                     <div className="grid gap-2">

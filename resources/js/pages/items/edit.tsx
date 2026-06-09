@@ -20,6 +20,7 @@ interface EditProps {
         price: number;
         category_id: number;
         image_url?: string;
+        quantity?: number;
     };
     categories: { id: number; name: string }[];
 }
@@ -31,6 +32,7 @@ export default function EditItem({ item, categories }: EditProps) {
         description: item.description || '',
         price: String(item.price || ''),
         category_id: String(item.category_id || ''),
+        quantity: String(item.quantity || ''),
     });
     const [imagePreview, setImagePreview] = useState<string | null>(item.image_url || null);
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -64,6 +66,7 @@ export default function EditItem({ item, categories }: EditProps) {
         form.append('description', formData.description);
         form.append('price', formData.price);
         form.append('category_id', formData.category_id);
+        form.append('quantity', formData.quantity);
         if (imageFile) {
             form.append('image', imageFile);
         }
@@ -122,6 +125,12 @@ export default function EditItem({ item, categories }: EditProps) {
                             ))}
                         </select>
                         <InputError message={errors.category_id} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="quantity">Quantity</Label>
+                        <Input id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} required />
+                        <InputError message={errors.quantity} />
                     </div>
 
                     <div className="grid gap-2">

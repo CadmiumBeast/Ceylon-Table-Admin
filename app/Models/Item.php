@@ -14,6 +14,7 @@ class Item extends Model
         'category_id',
         'is_active',
         'image_url',
+        'quantity',
     ];
 
     public function category()
