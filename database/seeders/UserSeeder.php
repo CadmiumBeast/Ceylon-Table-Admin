@@ -14,7 +14,7 @@ class UserSeeder extends Seeder
     {
         $user = [
             'name' => 'Admin',
-            'email' => 'admin@example.com',
+            'email' => 'admin@ceylontable.lk',
             'password' => 'password',
             'type' => 'admin',
         ];

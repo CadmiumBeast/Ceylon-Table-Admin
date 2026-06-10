@@ -10,7 +10,13 @@ class ApiController extends Controller
     //Table
     public function getNotAvailableTables()
     {
-        $tables = \App\Models\Table::where('is_available', false)->where('is_active', true)->get();
+        $tables = \App\Models\Table::where('is_available', false)->where('is_active', true)
+        ->with('orders', function ($query) {
+            $query->where('order_status', 'pending');
+        })
+        ->get();
+
+
         return response()->json($tables);
     }
     public function getAvailableTables()
