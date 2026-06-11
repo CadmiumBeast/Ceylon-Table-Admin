@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\Table;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 
 
@@ -388,5 +389,88 @@ class ApiController extends Controller
             \Log::error($e->getMessage());
             return response()->json(['error' => 'An error occurred'], 500);
         }
+    }
+
+    public function getDashboardData()
+    {
+        try{
+            $today = Carbon::today();
+
+            // 1. Calculate Dashboard Metrics
+            $doneToday = Order::whereDate('updated_at', $today)
+                ->where('order_status', 'completed')
+                ->count();
+
+            // Mock metric implementations for tracking kitchen times; swap out columns as your database scales
+            $avgPrepTime = 8;          // Default placeholder value in minutes
+            $onTimePercentage = 95;    // Default target SLA speed index fallback
+
+            $allitems = Item::all();
+
+            // 2. Fetch Active Kitchen Queue (Pending or Currently Cooking orders)
+            $orders = Order::with(['items', 'table'])
+                ->whereIn('order_status', ['pending', 'cooking'])
+                ->orderBy('created_at', 'asc')
+                ->get()
+                ->map(function ($order) {
+                    return [
+                        'id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'table_name' => $order->table ? $order->table->name : 'Unassigned',
+                        'status' => $order->order_status, // 'pending' maps to 'New' on frontend
+                        'items' => $order->items->map(function ($item) {
+                            return [
+                                'item_id' => $item->item_id,
+                                'name' => $item->item->name,
+                                'quantity' => $item->quantity,
+                                // Fallback string if your system has custom spice levels/add-ons in pivot or items tables
+                                'variation_notes' => $item->pivot->variation_notes ?? ''
+                            ];
+                        })
+                    ];
+                });
+
+            return response()->json([
+                'stats' => [
+                    'done_today' => (int)$doneToday,
+                    'avg_prep_time' => (int)$avgPrepTime,
+                    'on_time_percentage' => (int)$onTimePercentage,
+                ],
+                'orders' => $orders
+            ], 200);
+        }catch(\Exception $e){
+            \Log::error($e->getMessage());
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
+
+    }
+
+    /**
+     * Mutate order and items lifecycle preparation steps
+     */
+    public function updateKitchenStatus(Request $request, $orderId)
+    {
+        try{
+            $order = Order::find($orderId);
+            if (!$order) {
+                return response()->json(['error' => 'Order not found'], 404);
+            }
+
+            $newStatus = $request->get('status');
+            if (!in_array($newStatus, ['pending', 'cooking', 'ready'])) {
+                return response()->json(['error' => 'Invalid status value'], 400);
+            }
+
+            $order->update(['order_status' => $newStatus]);
+
+            // Optionally, you can also update individual order items' statuses here if needed
+
+            return response()->json(['message' => 'Kitchen status updated successfully']);
+
+        }catch(\Exception $e){
+            \Log::error($e->getMessage());
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
+
     }
 }
