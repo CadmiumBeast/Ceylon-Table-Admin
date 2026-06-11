@@ -3,7 +3,7 @@ import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
-import { LayoutGrid, User, Armchair, SquareStack, ClipboardList } from 'lucide-react';
+import { LayoutGrid, User, Users, Armchair, SquareStack, ClipboardList, ShoppingBag, ShoppingCart } from 'lucide-react';
 import AppLogo from './app-logo';
 
 const mainNavItems: NavItem[] = [
@@ -13,9 +13,24 @@ const mainNavItems: NavItem[] = [
         icon: LayoutGrid,
     },
     {
+        title: 'Orders',
+        url: '/orders',
+        icon: ShoppingBag,
+    },
+    {
+        title: 'Active Carts',
+        url: '/carts',
+        icon: ShoppingCart,
+    },
+    {
         title: 'Users',
         url: '/users',
         icon: User,
+    },
+    {
+        title: 'Customers',
+        url: '/customers',
+        icon: Users,
     },
     {
         title: 'Tables',

@@ -13,7 +13,8 @@ Route::get('/', function () {
 
 Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::resource('users', UserController::class)->except(['show' ]);
+    Route::resource('users', UserController::class)->except(['show']);
+    Route::resource('customers', \App\Http\Controllers\CustomerController::class)->except(['show']);
 
     //Table routes
     Route::get('/tables', [\App\Http\Controllers\TableController::class, 'index'])->name('table.index');
@@ -30,6 +31,16 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::resource('items', \App\Http\Controllers\ItemController::class)->except(['show']);
     Route::post('items/{item}/unavailable', [\App\Http\Controllers\ItemController::class, 'unavailable'])->name('items.unavailable');
     Route::post('items/{item}/available', [\App\Http\Controllers\ItemController::class, 'available'])->name('items.available');
+
+    // Order routes
+    Route::get('/orders', [\App\Http\Controllers\OrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/{order}', [\App\Http\Controllers\OrderController::class, 'show'])->name('orders.show');
+    Route::patch('/orders/{order}/status', [\App\Http\Controllers\OrderController::class, 'updateStatus'])->name('orders.update-status');
+    Route::patch('/orders/{order}/payment-status', [\App\Http\Controllers\OrderController::class, 'updatePaymentStatus'])->name('orders.update-payment-status');
+    Route::patch('/orders/{order}/items/{orderItem}/status', [\App\Http\Controllers\OrderController::class, 'updateItemStatus'])->name('orders.update-item-status');
+
+    // Cart routes
+    Route::get('/carts', [\App\Http\Controllers\CartController::class, 'index'])->name('carts.index');
 });
 
 Route::middleware(['auth', 'user-access:customer'])->group(function () {
