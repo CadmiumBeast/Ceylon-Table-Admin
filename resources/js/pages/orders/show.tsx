@@ -37,7 +37,7 @@ interface Props {
     order: Order;
 }
 
-const ORDER_STATUSES = ['pending', 'processing', 'completed', 'cancelled'] as const;
+const ORDER_STATUSES = ['pending', 'cooking','ready', 'completed', 'cancelled'] as const;
 const PAYMENT_STATUSES = ['pending', 'paid', 'failed'] as const;
 const ITEM_STATUSES = ['pending', 'preparing', 'ready', 'served', 'cancelled'] as const;
 

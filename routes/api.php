@@ -31,9 +31,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders/{orderId}/update-items', [ApiController::class, 'updateOrderItems']);
     Route::post('/orders/{orderId}/close-order', [ApiController::class, 'closeOrder']);
 
-    // Fetches the combined analytics and incoming order queue datasets
+    // Chef
     Route::get('/chef/dashboard', [ApiController::class, 'getDashboardData']);
-
-    // Updates an order's preparation phase status flag
     Route::post('/orders/{orderId}/kitchen-status', [ApiController::class, 'updateKitchenStatus']);
+    Route::get('/chef/weekly-stats', [ApiController::class, 'getWeeklyStats']);
 });
