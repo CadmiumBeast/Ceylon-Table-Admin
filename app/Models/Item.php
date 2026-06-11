@@ -22,6 +22,13 @@ class Item extends Model
         return $this->belongsTo(Category::class);
     }
 
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    
+
     protected function imageUrl(): Attribute
     {
         return Attribute::make(

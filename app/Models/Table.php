@@ -11,4 +11,14 @@ class Table extends Model
         'is_available',
         'is_active',
     ];
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
+    }
+
+    public function cart()
+    {
+        return $this->hasOne(Cart::class);
+    }
 }
