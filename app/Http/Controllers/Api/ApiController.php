@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\OrderItemStatusUpdated;
+use App\Events\OrderPlaced;
+use App\Events\OrderStatusUpdated;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Item;
 use App\Models\Order;
+use App\Models\OrderTime;
 use App\Models\Table;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -270,6 +274,18 @@ class ApiController extends Controller
                         $table->update(['is_available' => false]);
                     }
                 }
+
+            OrderTime::create([
+                'order_id' => $order->id,
+                'item_id' => null,
+                'ordered_time' => Carbon::now(),
+            ]);
+
+            $order->load('items.item', 'table');
+
+            \Log::info('Broadcasting OrderPlaced', ['order_id' => $order->id]);
+            broadcast(new OrderPlaced($order));
+
             return response()->json($order, 201);
 
         }catch(\Exception $e){
@@ -384,6 +400,8 @@ class ApiController extends Controller
                 }
             }
 
+            broadcast(new OrderStatusUpdated($order->fresh()))->toOthers();
+
             return response()->json(['message' => 'Order closed successfully']);
         } catch (\Exception $e) {
             \Log::error($e->getMessage());
@@ -405,8 +423,12 @@ class ApiController extends Controller
                 ->where('order_status', 'completed')
                 ->count();
 
-            // Mock metric implementations for tracking kitchen times; swap out columns as your database scales
-            $avgPrepTime = 8;          // Default placeholder value in minutes
+            $avgPrepTime = (int) round(
+                OrderTime::whereNotNull('cooking_time')
+                    ->whereNotNull('ready_time')
+                    ->whereDate('created_at', $today)
+                    ->avg(DB::raw('TIMESTAMPDIFF(MINUTE, cooking_time, ready_time)')) ?? 0
+            );
             $onTimePercentage = 95;    // Default target SLA speed index fallback
 
             $allitems = Item::all();
@@ -427,8 +449,7 @@ class ApiController extends Controller
                                 'item_id' => $item->item_id,
                                 'name' => $item->item->name,
                                 'quantity' => $item->quantity,
-                                // Fallback string if your system has custom spice levels/add-ons in pivot or items tables
-                                'variation_notes' => $item->pivot->variation_notes ?? ''
+                                'status' => $item->orderItem_status, // 'pending' maps to 'New', 'cooking' to 'In Progress', 'ready' to 'Ready'
                             ];
                         })
                     ];
@@ -464,7 +485,15 @@ class ApiController extends Controller
 
             $order->update(['order_status' => $newStatus]);
 
-            // Optionally, you can also update individual order items' statuses here if needed
+            $orderTime = OrderTime::firstOrNew(['order_id' => $order->id]);
+            if ($newStatus === 'cooking') {
+                $orderTime->cooking_time = Carbon::now();
+            } elseif ($newStatus === 'ready') {
+                $orderTime->ready_time = Carbon::now();
+            }
+            $orderTime->save();
+
+            broadcast(new OrderStatusUpdated($order))->toOthers();
 
             return response()->json(['message' => 'Kitchen status updated successfully']);
 
@@ -527,14 +556,99 @@ class ApiController extends Controller
                 ];
             });
 
+        $avgTime = (int) round(
+            OrderTime::whereNotNull('cooking_time')
+                ->whereNotNull('ready_time')
+                ->where('created_at', '>=', $oneWeekAgo)
+                ->avg(DB::raw('TIMESTAMPDIFF(MINUTE, cooking_time, ready_time)')) ?? 0
+        );
+
         return response()->json([
             'summary' => [
                 'total_orders' => (int)$totalOrdersCount,
-                'avg_time' => 9, // Pre-calculated or mock average baseline matching image layout
+                'avg_time' => $avgTime,
                 'rating' => 'A+'
             ],
             'peak_hours' => $peakHoursMapped,
             'top_orders' => $topOrdersMapped
         ], 200);
     }
+
+    public function updateItemStatus(Request $request, $orderId,$itemId, )
+    {
+        try {
+            $orderItem = \App\Models\OrderItem::where('order_id', $orderId)
+                ->where('item_id', $itemId)
+                ->first();
+
+            if (!$orderItem) {
+                return response()->json(['error' => 'Order item not found'], 404);
+            }
+
+            $newStatus = $request->get('status');
+            if (!in_array($newStatus, ['pending', 'cooking', 'ready', 'served', 'cancelled'])) {
+                return response()->json(['error' => 'Invalid status value'], 400);
+            }
+
+            $orderItem->update(['orderItem_status' => $newStatus]);
+
+            // Mark the time when the item status was updated to 'cooking' or 'ready' for accurate kitchen time tracking
+            $orderTime = OrderTime::firstOrNew(['order_id' => $orderId, 'item_id' => $itemId]);
+            if ($newStatus === 'cooking') {
+                $orderTime->cooking_time = Carbon::now();
+            } elseif ($newStatus === 'ready') {
+                $orderTime->ready_time = Carbon::now();
+            }
+            $orderTime->save();
+
+            broadcast(new OrderItemStatusUpdated($orderItem))->toOthers();
+
+            return response()->json(['message' => 'Item status updated successfully']);
+
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
+    }
+
+    public function getReadyItems()
+    {
+        $readyItems = \App\Models\OrderItem::where('orderItem_status', 'ready')
+            ->with(['item', 'order.table'])
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'order_item_id' => $item->id,
+                    'order_id' => $item->order_id,
+                    'item_id' => $item->item_id,
+                    'name' => $item->item->name,
+                    'quantity' => $item->quantity,
+                    'table_name' => $item->order->table ? $item->order->table->name : 'Unassigned',
+                ];
+            });
+
+        return response()->json($readyItems, 200);
+    }
+
+    public function markItemAsServed(Request $request, $orderItemId)
+    {
+        try {
+            $orderItem = \App\Models\OrderItem::find($orderItemId);
+            if (!$orderItem) {
+                return response()->json(['error' => 'Order item not found'], 404);
+            }
+
+            $orderItem->update(['orderItem_status' => 'served']);
+
+            broadcast(new OrderItemStatusUpdated($orderItem))->toOthers();
+
+            return response()->json(['message' => 'Item marked as served successfully']);
+
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
+    }
+
+
 }
