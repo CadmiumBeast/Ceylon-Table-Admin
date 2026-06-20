@@ -44,6 +44,7 @@ class ItemController extends Controller
             'price' => $request->get('price'),
             'category_id' => $request->get('category_id'),
             'is_active' => true,
+            'quantity' => $request->get('quantity', 0),
         ];
 
         if ($request->hasFile('image')) {
@@ -80,6 +81,7 @@ class ItemController extends Controller
             'description' => $request->get('description'),
             'price' => $request->get('price'),
             'category_id' => $request->get('category_id'),
+            'quantity' => $request->get('quantity', $item->quantity),
         ];
 
         if ($request->hasFile('image')) {
