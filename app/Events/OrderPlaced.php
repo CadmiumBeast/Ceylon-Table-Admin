@@ -37,7 +37,8 @@ class OrderPlaced implements ShouldBroadcastNow
             'order_number'  => $this->order->order_number,
             'order_status'  => $this->order->order_status,
             'order_type'    => $this->order->order_type,
-            'table_id'      => $this->order->table_id,
+            'table_name' => $this->order->table?->name ?? 'Table ' . $this->order->table_id,
+            'table_id'   => $this->order->table_id,
             'total_price'   => $this->order->total_price,
             'items'         => $this->order->relationLoaded('items')
                 ? $this->order->items->map(fn($i) => [
