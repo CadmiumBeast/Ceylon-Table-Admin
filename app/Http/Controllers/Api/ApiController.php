@@ -304,15 +304,18 @@ class ApiController extends Controller
 
             $items = $request->get('items', []);
             foreach ($items as $itemData) {
-                $orderItem = \App\Models\OrderItem::where('order_id', $orderId)
+                $existingItem = \App\Models\OrderItem::where('order_id', $orderId)
                     ->where('item_id', $itemData['item_id'])
                     ->first();
 
-                if ($orderItem) {
-                    //Get the original quantity before update to adjust item stock
-                    $originalQuantity = $orderItem->quantity;
-                    $quantityDiff = $itemData['quantity'] - $originalQuantity;
-                    $item = \App\Models\Item::find($itemData['item_id']);
+                $item = \App\Models\Item::find($itemData['item_id']);
+
+                if ($existingItem) {
+                    $originalQty  = $existingItem->quantity;
+                    $newQty       = $itemData['quantity'];
+                    $quantityDiff = $newQty - $originalQty;
+
+                    // Adjust stock
                     if ($item) {
                         if ($quantityDiff < 0) {
                             $item->increment('quantity', abs($quantityDiff));
@@ -323,11 +326,30 @@ class ApiController extends Controller
                             $item->decrement('quantity', $quantityDiff);
                         }
                     }
-                    $orderItem->update([
-                        'quantity' => $itemData['quantity'],
-                    ]);
-                }else{
-                    $item = \App\Models\Item::find($itemData['item_id']);
+
+                    // Check if item is already done — only update quantity, never reset status
+                    $isFinished = in_array($existingItem->orderItem_status, ['ready', 'served', 'rejected']);
+
+                    if ($isFinished && $newQty > $originalQty) {
+                        // Extra quantity added on top of a finished item → create a NEW pending row
+                        $extraQty = $newQty - $originalQty;
+                        if ($item) {
+                            // Stock was already decremented above for full diff, so this is correct
+                        }
+                        \App\Models\OrderItem::create([
+                            'order_id'         => $orderId,
+                            'item_id'          => $itemData['item_id'],
+                            'quantity'         => $extraQty,
+                            'price'            => $existingItem->price,
+                            'orderItem_status' => 'pending', // chef needs to cook these fresh
+                        ]);
+                    } else {
+                        // Normal quantity update — preserve existing status
+                        $existingItem->update(['quantity' => $newQty]);
+                    }
+
+                } else {
+                    // Brand new item not in order yet
                     if ($item) {
                         if ($item->quantity < $itemData['quantity']) {
                             return response()->json(['error' => 'Not enough stock for item ID ' . $itemData['item_id']], 400);
@@ -336,10 +358,11 @@ class ApiController extends Controller
                     }
 
                     \App\Models\OrderItem::create([
-                        'order_id' => $orderId,
-                        'item_id' => $itemData['item_id'],
-                        'quantity' => $itemData['quantity'],
-                        'price' => $itemData['price'],
+                        'order_id'         => $orderId,
+                        'item_id'          => $itemData['item_id'],
+                        'quantity'         => $itemData['quantity'],
+                        'price'            => $itemData['price'] ?? $item?->price,
+                        'orderItem_status' => 'pending',
                     ]);
                 }
             }
@@ -354,6 +377,10 @@ class ApiController extends Controller
             ]);
 
             broadcast(new OrderStatusUpdated($order->fresh()))->toOthers();
+            $order = \App\Models\Order::with('items.item', 'table')->find($orderId);
+
+            \Log::info('Broadcasting OrderItemsUpdated', ['order_id' => $order->id]);
+            broadcast(new \App\Events\OrderItemsUpdated($order));
 
             return response()->json(['message' => 'Order items updated']);
         } catch (\Exception $e) {
