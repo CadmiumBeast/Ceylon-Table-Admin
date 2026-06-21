@@ -2,7 +2,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useEchoPublic } from '@laravel/echo-react';
 import { ShoppingBag, ShoppingCart, TrendingUp, Clock } from 'lucide-react';
 
 interface Stats {
@@ -89,6 +90,10 @@ function StatCard({
 }
 
 export default function Dashboard({ stats, currentOrders }: Props) {
+    useEchoPublic('orders', ['.order.placed', '.order.status.updated'], () => {
+        router.reload({ only: ['stats', 'currentOrders'] });
+    });
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />

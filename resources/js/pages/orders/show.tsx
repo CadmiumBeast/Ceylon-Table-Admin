@@ -2,7 +2,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { useEchoPublic } from '@laravel/echo-react';
 
 interface Item {
     id: number;
@@ -142,6 +143,12 @@ function ItemStatusForm({ orderId, orderItem }: { orderId: number; orderItem: Or
 }
 
 export default function OrderShow({ order }: Props) {
+    useEchoPublic<{ order_id: number }>('orders', ['.order.status.updated', '.order.item.status.updated'], (data) => {
+        if (data.order_id === order.id) {
+            router.reload({ only: ['order'] });
+        }
+    }, [order.id]);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs(order.order_number)}>
             <Head title={`Order ${order.order_number}`} />

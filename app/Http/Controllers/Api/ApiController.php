@@ -353,6 +353,8 @@ class ApiController extends Controller
                 'subtotal' => $subtotal,
             ]);
 
+            broadcast(new OrderStatusUpdated($order->fresh()))->toOthers();
+
             return response()->json(['message' => 'Order items updated']);
         } catch (\Exception $e) {
             \Log::error($e->getMessage());

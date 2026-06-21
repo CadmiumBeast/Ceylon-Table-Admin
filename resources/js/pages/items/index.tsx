@@ -10,6 +10,7 @@ interface Item {
     price: number;
     image_url: string | null;
     is_active: boolean;
+    quantity: number;
 }
 
 interface CategoryWithItems {
@@ -56,6 +57,7 @@ export default function ItemsIndex({ categories }: ItemsIndexProps) {
                                             <th className="px-4 py-3 font-medium">Image</th>
                                             <th className="px-4 py-3 font-medium">Name</th>
                                             <th className="px-4 py-3 font-medium">Price</th>
+                                            <th className="px-4 py-3 font-medium">Quantity</th>
                                             <th className="px-4 py-3 font-medium">Status</th>
                                             <th className="px-4 py-3 font-medium text-right">Actions</th>
                                         </tr>
@@ -63,7 +65,7 @@ export default function ItemsIndex({ categories }: ItemsIndexProps) {
                                     <tbody>
                                         {cat.items.length === 0 ? (
                                             <tr>
-                                                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                                                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                                                     No items in this category.
                                                 </td>
                                             </tr>
@@ -85,6 +87,7 @@ export default function ItemsIndex({ categories }: ItemsIndexProps) {
                                                     </td>
                                                     <td className="px-4 py-3">{item.name}</td>
                                                     <td className="px-4 py-3">{item.price}</td>
+                                                    <td className="px-4 py-3">{item.quantity}</td>
                                                     <td className="px-4 py-3">
                                                         {item.is_active ? (
                                                             <Badge variant="secondary">Active</Badge>
