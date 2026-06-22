@@ -1,3 +1,4 @@
+import { useState, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Head, Link } from '@inertiajs/react';
@@ -28,6 +29,13 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function ItemsIndex({ categories }: ItemsIndexProps) {
+    const [selectedId, setSelectedId] = useState<number | null>(
+        categories.length > 0 ? categories[0].id : null
+    );
+    const sliderRef = useRef<HTMLDivElement>(null);
+
+    const selected = categories.find((c) => c.id === selectedId) ?? null;
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Items" />
@@ -43,85 +51,112 @@ export default function ItemsIndex({ categories }: ItemsIndexProps) {
                 {categories.length === 0 ? (
                     <div className="rounded-lg border bg-card p-6 text-center">No categories found.</div>
                 ) : (
-                    categories.map((cat) => (
-                        <div key={cat.id} className="rounded-lg border bg-card p-4">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-lg font-medium">{cat.name}</h2>
-                                <Badge>{cat.items.length} items</Badge>
-                            </div>
+                    <>
+                        {/* Category slider */}
+                        <div
+                            ref={sliderRef}
+                            className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
+                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                        >
+                            {categories.map((cat) => (
+                                <button
+                                    key={cat.id}
+                                    onClick={() => setSelectedId(cat.id)}
+                                    className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                                        selectedId === cat.id
+                                            ? 'bg-primary text-primary-foreground shadow'
+                                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                    }`}
+                                >
+                                    {cat.name}
+                                    <span className="ml-1.5 rounded-full bg-background/20 px-1.5 py-0.5 text-xs">
+                                        {cat.items.length}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
 
-                            <div className="mt-3 overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-muted/40 text-left">
-                                        <tr>
-                                            <th className="px-4 py-3 font-medium">Image</th>
-                                            <th className="px-4 py-3 font-medium">Name</th>
-                                            <th className="px-4 py-3 font-medium">Price</th>
-                                            <th className="px-4 py-3 font-medium">Quantity</th>
-                                            <th className="px-4 py-3 font-medium">Status</th>
-                                            <th className="px-4 py-3 font-medium text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {cat.items.length === 0 ? (
+                        {/* Items table for selected category */}
+                        {selected && (
+                            <div className="rounded-lg border bg-card p-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h2 className="text-lg font-medium">{selected.name}</h2>
+                                    <Badge>{selected.items.length} items</Badge>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-muted/40 text-left">
                                             <tr>
-                                                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                                                    No items in this category.
-                                                </td>
+                                                <th className="px-4 py-3 font-medium">Image</th>
+                                                <th className="px-4 py-3 font-medium">Name</th>
+                                                <th className="px-4 py-3 font-medium">Price</th>
+                                                <th className="px-4 py-3 font-medium">Quantity</th>
+                                                <th className="px-4 py-3 font-medium">Status</th>
+                                                <th className="px-4 py-3 font-medium text-right">Actions</th>
                                             </tr>
-                                        ) : (
-                                            cat.items.map((item) => (
-                                                <tr key={item.id} className="border-t">
-                                                    <td className="px-4 py-3">
-                                                        {item.image_url ? (
-                                                            <img
-                                                                src={ item.image_url}
-                                                                alt={item.name}
-                                                                className="h-14 w-14 rounded-md border object-cover"
-                                                            />
-                                                        ) : (
-                                                            <div className="flex h-14 w-14 items-center justify-center rounded-md border bg-muted text-xs text-muted-foreground">
-                                                                No image
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3">{item.name}</td>
-                                                    <td className="px-4 py-3">{item.price}</td>
-                                                    <td className="px-4 py-3">{item.quantity}</td>
-                                                    <td className="px-4 py-3">
-                                                        {item.is_active ? (
-                                                            <Badge variant="secondary">Active</Badge>
-                                                        ) : (
-                                                            <Badge variant="destructive">Unavailable</Badge>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <Button variant="outline" size="sm" asChild>
-                                                            <Link href={route('items.edit', item.id)}>Edit</Link>
-                                                        </Button>
-                                                        {item.is_active && (
-                                                            <Button variant="destructive" size="sm" className="ml-2" asChild>
-                                                                <Link href={route('items.unavailable', item.id)} method="post" as="button">
-                                                                    Make Unavailable
-                                                                </Link>
-                                                            </Button>
-                                                        )}
-                                                        {!item.is_active && (
-                                                            <Button variant="secondary" size="sm" className="ml-2" asChild>
-                                                                <Link href={route('items.available', item.id)} method="post" as="button">
-                                                                    Make Available
-                                                                </Link>
-                                                            </Button>
-                                                        )}
+                                        </thead>
+                                        <tbody>
+                                            {selected.items.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                                                        No items in this category.
                                                     </td>
                                                 </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
+                                            ) : (
+                                                selected.items.map((item) => (
+                                                    <tr key={item.id} className="border-t">
+                                                        <td className="px-4 py-3">
+                                                            {item.image_url ? (
+                                                                <img
+                                                                    src={item.image_url}
+                                                                    alt={item.name}
+                                                                    className="h-14 w-14 rounded-md border object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div className="flex h-14 w-14 items-center justify-center rounded-md border bg-muted text-xs text-muted-foreground">
+                                                                    No image
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3">{item.name}</td>
+                                                        <td className="px-4 py-3">{item.price}</td>
+                                                        <td className="px-4 py-3">{item.quantity}</td>
+                                                        <td className="px-4 py-3">
+                                                            {item.is_active ? (
+                                                                <Badge variant="secondary">Active</Badge>
+                                                            ) : (
+                                                                <Badge variant="destructive">Unavailable</Badge>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <Button variant="outline" size="sm" asChild>
+                                                                <Link href={route('items.edit', item.id)}>Edit</Link>
+                                                            </Button>
+                                                            {item.is_active && (
+                                                                <Button variant="destructive" size="sm" className="ml-2" asChild>
+                                                                    <Link href={route('items.unavailable', item.id)} method="post" as="button">
+                                                                        Make Unavailable
+                                                                    </Link>
+                                                                </Button>
+                                                            )}
+                                                            {!item.is_active && (
+                                                                <Button variant="secondary" size="sm" className="ml-2" asChild>
+                                                                    <Link href={route('items.available', item.id)} method="post" as="button">
+                                                                        Make Available
+                                                                    </Link>
+                                                                </Button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                        </div>
-                    ))
+                        )}
+                    </>
                 )}
             </div>
         </AppLayout>

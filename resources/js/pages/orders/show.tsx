@@ -161,9 +161,17 @@ export default function OrderShow({ order }: Props) {
                             Placed {new Date(order.created_at).toLocaleString()}
                         </p>
                     </div>
-                    <Button variant="outline" asChild>
-                        <Link href={route('orders.index')}>Back to Orders</Link>
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => window.open(route('orders.receipt', order.id), '_blank')}
+                        >
+                            Print Bill
+                        </Button>
+                        <Button variant="outline" asChild>
+                            <Link href={route('orders.index')}>Back to Orders</Link>
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">

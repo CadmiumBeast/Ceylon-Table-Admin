@@ -60,7 +60,12 @@ export default function OrdersIndex({ orders }: Props) {
             <div className="space-y-6 p-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-semibold">Orders</h1>
-                    <span className="text-sm text-muted-foreground">{orders.length} total</span>
+                    <div className="flex items-center gap-3">
+                        <span className="text-sm text-muted-foreground">{orders.length} total</span>
+                        <Button asChild>
+                            <Link href={route('orders.create')}>Create Order</Link>
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="overflow-x-auto rounded-lg border bg-card shadow-xs">

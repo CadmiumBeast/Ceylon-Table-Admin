@@ -34,10 +34,13 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
 
     // Order routes
     Route::get('/orders', [\App\Http\Controllers\OrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/create', [\App\Http\Controllers\OrderController::class, 'create'])->name('orders.create');
+    Route::post('/orders', [\App\Http\Controllers\OrderController::class, 'store'])->name('orders.store');
     Route::get('/orders/{order}', [\App\Http\Controllers\OrderController::class, 'show'])->name('orders.show');
     Route::patch('/orders/{order}/status', [\App\Http\Controllers\OrderController::class, 'updateStatus'])->name('orders.update-status');
     Route::patch('/orders/{order}/payment-status', [\App\Http\Controllers\OrderController::class, 'updatePaymentStatus'])->name('orders.update-payment-status');
     Route::patch('/orders/{order}/items/{orderItem}/status', [\App\Http\Controllers\OrderController::class, 'updateItemStatus'])->name('orders.update-item-status');
+    Route::get('/orders/{order}/receipt', [\App\Http\Controllers\OrderController::class, 'receipt'])->name('orders.receipt');
 
     // Cart routes
     Route::get('/carts', [\App\Http\Controllers\CartController::class, 'index'])->name('carts.index');
