@@ -476,7 +476,7 @@ class ApiController extends Controller
                         'status' => $order->order_status, // 'pending' maps to 'New' on frontend
                         'items' => $order->items->map(function ($item) {
                             return [
-                                'id' => $item->id, 
+                                'id' => $item->id,
                                 'item_id' => $item->item_id,
                                 'name' => $item->item->name,
                                 'quantity' => $item->quantity,
@@ -611,12 +611,10 @@ class ApiController extends Controller
         ], 200);
     }
 
-    public function updateItemStatus(Request $request, $orderId,$itemId, )
+    public function updateItemStatus(Request $request, $orderIItemId)
     {
         try {
-            $orderItem = \App\Models\OrderItem::where('order_id', $orderId)
-                ->where('item_id', $itemId)
-                ->first();
+            $orderItem = \App\Models\OrderItem::find($orderIItemId);
 
             if (!$orderItem) {
                 return response()->json(['error' => 'Order item not found'], 404);
@@ -630,7 +628,10 @@ class ApiController extends Controller
             $orderItem->update(['orderItem_status' => $newStatus]);
 
             // Mark the time when the item status was updated to 'cooking' or 'ready' for accurate kitchen time tracking
-            $orderTime = OrderTime::firstOrNew(['order_id' => $orderId, 'item_id' => $itemId]);
+            $orderTime = OrderTime::firstOrNew([
+                'order_id' => $orderItem->order_id,
+                'item_id' => $orderItem->item_id,
+            ]);
             if ($newStatus === 'cooking') {
                 $orderTime->cooking_time = Carbon::now();
             } elseif ($newStatus === 'ready') {
