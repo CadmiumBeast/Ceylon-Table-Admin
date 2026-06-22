@@ -393,46 +393,62 @@ class ApiController extends Controller
     public function closeOrder(Request $request, $orderId)
     {
         try {
-            // Customer creation logic (name, phone, dbo)
-            $user = User::create([
-                'name' => $request->get('customer_first_name') . ' ' . $request->get('customer_last_name'),
-                'email' => 'customer_' . time() . '@ceylontable.com', // Generate a unique email for the customer
-                'password' => bcrypt('defaultpassword'),
-            ]);
-
-
-            $customer = \App\Models\Customer::firstOrCreate([
-                'user_id' => $user->id,
-                'first_name' => $request->get('customer_first_name'),
-                'last_name' => $request->get('customer_last_name'),
-                'phone_number' => $request->get('customer_phone'),
-                'date_of_birth' => $request->get('customer_dbo'),
-            ]);
-
-
             $order = \App\Models\Order::find($orderId);
             if (!$order) {
                 return response()->json(['error' => 'Order not found'], 404);
             }
 
-            $payment_method = $request->get('payment_method');
+            $customerId = null;
 
+            $skipCustomer = $request->get('skip_customer', false);
+
+            if (!$skipCustomer) {
+                $phone = $request->get('customer_phone');
+
+                // Check if customer already exists by phone
+                $existingCustomer = \App\Models\Customer::where('phone_number', $phone)->first();
+
+                if ($existingCustomer) {
+                    // Use existing customer — no new User created
+                    $customerId = $existingCustomer->id;
+                } else {
+                    // Create a new User + Customer record
+                    $user = User::create([
+                        'name'     => $request->get('customer_first_name') . ' ' . $request->get('customer_last_name'),
+                        'email'    => 'customer_' . $phone . '_' . time() . '@ceylontable.com',
+                        'password' => bcrypt('defaultpassword'),
+                    ]);
+
+                    $customer = \App\Models\Customer::create([
+                        'user_id'       => $user->id,
+                        'first_name'    => $request->get('customer_first_name'),
+                        'last_name'     => $request->get('customer_last_name'),
+                        'phone_number'  => $phone,
+                        'date_of_birth' => $request->get('customer_dob'),
+                    ]);
+
+                    $customerId = $customer->id;
+                }
+            }
+
+            // Close the order
             $order->update([
-                'order_status' => 'completed',
-                'payment_method' => $payment_method,
+                'order_status'   => 'completed',
+                'payment_method' => $request->get('payment_method', $order->payment_method),
                 'payment_status' => 'paid',
+                'customer_id'    => $customerId, // null if skipped
             ]);
 
+            // Free the table
             if ($order->table_id) {
-                $table = \App\Models\Table::find($order->table_id);
-                if ($table) {
-                    $table->update(['is_available' => true]);
-                }
+                \App\Models\Table::where('id', $order->table_id)
+                    ->update(['is_available' => true]);
             }
 
             broadcast(new OrderStatusUpdated($order->fresh()))->toOthers();
 
             return response()->json(['message' => 'Order closed successfully']);
+
         } catch (\Exception $e) {
             \Log::error($e->getMessage());
             return response()->json(['error' => 'An error occurred'], 500);

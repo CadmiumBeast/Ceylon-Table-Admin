@@ -37,4 +37,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/chef/item/{orderitemId}/status', [ApiController::class, 'updateItemStatus']);
     Route::get('/staff/ready-items', [ApiController::class, 'getReadyItems']);
     Route::post('/staff/item/{orderItemId}/serve', [ApiController::class, 'markItemAsServed']);
+
+    // routes/api.php
+    Route::get('/customers/lookup', function (Request $request) {
+        $customer = \App\Models\Customer::where('phone_number', $request->phone)->first();
+        if (!$customer) {
+            return response()->json(['message' => 'Not found'], 404);
+        }
+        return response()->json([
+            'first_name' => $customer->first_name,
+            'last_name'  => $customer->last_name,
+            'phone'      => $customer->phone_number,
+            'dob'        => $customer->date_of_birth,
+        ]);
+    });
 });
