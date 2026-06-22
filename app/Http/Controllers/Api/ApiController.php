@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 
 
 
+
 class ApiController extends Controller
 {
     //User
@@ -499,38 +500,44 @@ class ApiController extends Controller
 
     }
 
-    public function updateKitchenStatus(Request $request, $orderId)
+    public function updateKitchenItemStatus(Request $request, $orderItemId)
     {
-        try{
-            $order = Order::find($orderId);
-            if (!$order) {
-                return response()->json(['error' => 'Order not found'], 404);
+        try {
+            $orderItem = \App\Models\OrderItem::find($orderItemId);
+
+            if (!$orderItem) {
+                return response()->json(['error' => 'Item not found'], 404);
             }
 
             $newStatus = $request->get('status');
+
+            // Validate the incoming status
             if (!in_array($newStatus, ['pending', 'cooking', 'ready'])) {
                 return response()->json(['error' => 'Invalid status value'], 400);
             }
 
-            $order->update(['order_status' => $newStatus]);
+            $orderItem->update(['orderItem_status' => $newStatus]);
 
-            $orderTime = OrderTime::firstOrNew(['order_id' => $order->id]);
-            if ($newStatus === 'cooking') {
-                $orderTime->cooking_time = Carbon::now();
-            } elseif ($newStatus === 'ready') {
-                $orderTime->ready_time = Carbon::now();
-            }
-            $orderTime->save();
+             #OPTIONAL: If you track times per item like you do for orders,
+             #you would implement a related model like this:
 
-            broadcast(new OrderStatusUpdated($order))->toOthers();
+             $itemTime = OrderTime::firstOrNew(['order_id' => $orderItem->order_id, 'item_id' => $orderItem->item_id]);
+             if ($newStatus === 'cooking') {
+             $itemTime->cooking_time = \Carbon\Carbon::now();
+             } elseif ($newStatus === 'ready') {
+             $itemTime->ready_time = \Carbon\Carbon::now();
+             }
+             $itemTime->save();
 
-            return response()->json(['message' => 'Kitchen status updated successfully']);
 
-        }catch(\Exception $e){
+            broadcast(new OrderItemStatusUpdated($orderItem))->toOthers();
+
+            return response()->json(['message' => 'Item kitchen status updated successfully']);
+
+        } catch (\Exception $e) {
             \Log::error($e->getMessage());
             return response()->json(['error' => 'An error occurred'], 500);
         }
-
     }
 
     public function getWeeklyStats()

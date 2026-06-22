@@ -36,6 +36,7 @@ class OrderItemsUpdated implements ShouldBroadcastNow
             'table_id'     => $this->order->table_id,
             'total_price'  => $this->order->total_price,
             'items'        => $this->order->items->map(fn($i) => [
+                'id'       => $i->id,        // ← ADD THIS: the actual OrderItem row ID
                 'item_id'  => $i->item_id,
                 'name'     => optional($i->item)->name,
                 'quantity' => $i->quantity,
