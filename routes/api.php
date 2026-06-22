@@ -33,9 +33,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Chef
     Route::get('/chef/dashboard', [ApiController::class, 'getDashboardData']);
-    Route::post('/orders/{orderId}/kitchen-status', [ApiController::class, 'updateKitchenStatus']);
     Route::get('/chef/weekly-stats', [ApiController::class, 'getWeeklyStats']);
-    Route::post('/chef/item/{orderId}/{itemId}/status', [ApiController::class, 'updateItemStatus']);
+    Route::post('/chef/item/{orderitemId}/status', [ApiController::class, 'updateItemStatus']);
     Route::get('/staff/ready-items', [ApiController::class, 'getReadyItems']);
     Route::post('/staff/item/{orderItemId}/serve', [ApiController::class, 'markItemAsServed']);
 });

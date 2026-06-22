@@ -476,6 +476,7 @@ class ApiController extends Controller
                         'status' => $order->order_status, // 'pending' maps to 'New' on frontend
                         'items' => $order->items->map(function ($item) {
                             return [
+                                'id' => $item->id, 
                                 'item_id' => $item->item_id,
                                 'name' => $item->item->name,
                                 'quantity' => $item->quantity,
