@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -77,10 +76,16 @@ class AuthController extends Controller
 
         $user = $userQuery->first();
 
-        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'username' => ['The provided credentials are incorrect.'],
-            ]);
+        if (! $user) {
+            return response()->json([
+                'message' => 'User not found.',
+            ], 401);
+        }
+
+        if (! Hash::check($credentials['password'], $user->password)) {
+            return response()->json([
+                'message' => 'Invalid password.',
+            ], 401);
         }
 
         $token = $user->createToken('flutter')->plainTextToken;
