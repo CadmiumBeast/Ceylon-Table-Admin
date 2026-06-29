@@ -340,7 +340,32 @@ class ApiController extends Controller
                 'discount'         => 0,
             ]);
 
-            // ... (Move items from Cart to OrderItems and calculate totals exactly like your current placeOrder method) ...
+            // Move items from Cart to OrderItems and calculate totals
+            $groupedItems = $cart->items->groupBy('item_id')->map(function ($items) {
+                return [
+                    'item_id' => $items->first()->item_id,
+                    'quantity' => $items->sum('quantity'),
+                    'price'   => $items->first()->item->price,
+                ];
+            })->values();
+
+            $subtotal = 0;
+            foreach ($groupedItems as $groupedItem) {
+                $subtotal += $groupedItem['quantity'] * $groupedItem['price'];
+                \App\Models\OrderItem::create([
+                    'order_id' => $order->id,
+                    'item_id'  => $groupedItem['item_id'],
+                    'quantity' => $groupedItem['quantity'],
+                    'price'    => $groupedItem['price'],
+                ]);
+            }
+
+            $order->update([
+                'subtotal'    => $subtotal,
+                'total_price' => $subtotal,
+            ]);
+
+            $cart->items()->delete();
 
             // 5. Fire Event (Only send to kitchen if not waiting on bank transfer)
             if ($order_status === 'pending') {
