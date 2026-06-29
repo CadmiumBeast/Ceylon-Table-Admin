@@ -295,6 +295,66 @@ class ApiController extends Controller
         }
     }
 
+    public function customerCheckout(Request $request)
+    {
+        try {
+            $cart = \App\Models\Cart::find($request->get('cart_id'));
+            if (!$cart) {
+                return response()->json(['error' => 'Cart not found'], 404);
+            }
+
+            // 1. Extract customer-specific fields
+            $order_type = $request->get('order_type'); // 'takeaway', 'delivery', 'dine-in-seated', 'dine-in-queue'
+            $payment_method = $request->get('payment_method');
+            $delivery_address = $request->get('delivery_address');
+
+            // Handle Seat/Table logic
+            $table_id = null;
+            if ($order_type === 'dine-in-seated') {
+                $table_id = $request->get('table_id');
+                // Mark table as unavailable
+                Table::where('id', $table_id)->update(['is_available' => false]);
+            }
+
+            // 2. Generate Order Number
+            $lastOrder = Order::orderBy('id', 'desc')->first();
+            $lastOrderNumber = $lastOrder ? intval(str_replace('CTB-', '', $lastOrder->order_number)) : 0;
+            $order_number = 'CTB-' . str_pad($lastOrderNumber + 1, 6, '0', STR_PAD_LEFT);
+
+            // 3. Determine Initial Status
+            // If bank transfer, maybe it needs admin approval first before going to the kitchen
+            $order_status = ($payment_method === 'Bank transfer') ? 'awaiting_payment' : 'pending';
+
+            // 4. Create the Order
+            $order = Order::create([
+                'user_id'          => $cart->user_id,
+                'table_id'         => $table_id,
+                'payment_method'   => $payment_method,
+                'payment_status'   => 'pending',
+                'order_number'     => $order_number,
+                'order_type'       => $order_type,
+                'delivery_address' => $delivery_address,
+                'order_status'     => $order_status,
+                'total_price'      => 0,
+                'subtotal'         => 0,
+                'discount'         => 0,
+            ]);
+
+            // ... (Move items from Cart to OrderItems and calculate totals exactly like your current placeOrder method) ...
+
+            // 5. Fire Event (Only send to kitchen if not waiting on bank transfer)
+            if ($order_status === 'pending') {
+                broadcast(new OrderPlaced($order));
+            }
+
+            return response()->json($order->load('items.item', 'table'), 201);
+
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+            return response()->json(['error' => 'Checkout failed'], 500);
+        }
+    }
+
     public function updateOrderItems(Request $request, $orderId)
     {
         try {
