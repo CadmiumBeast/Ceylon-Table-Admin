@@ -29,13 +29,22 @@ class OrderStatusUpdated implements ShouldBroadcastNow
     }
 
     public function broadcastWith(): array
-    {
-        return [
-            'order_id'       => $this->order->id,
-            'order_number'   => $this->order->order_number,
-            'order_status'   => $this->order->order_status,
-            'payment_status' => $this->order->payment_status,
-            'table_id'       => $this->order->table_id,
-        ];
-    }
+{
+    $this->order->loadMissing(['items.item.category.counters', 'table']);
+
+    $hasJuiceBarItems = $this->order->items->contains(function ($orderItem) {
+        return $orderItem->item?->category?->counters?->contains(
+            fn($counter) => strcasecmp($counter->name, 'Juice Bar') === 0
+        );
+    });
+
+    return [
+        'order_id'            => $this->order->id,
+        'order_number'        => $this->order->order_number,
+        'order_status'        => $this->order->order_status,
+        'payment_status'      => $this->order->payment_status,
+        'table_id'            => $this->order->table_id,
+        'has_juice_bar_items' => $hasJuiceBarItems,
+    ];
+}
 }

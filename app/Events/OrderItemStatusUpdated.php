@@ -30,11 +30,18 @@ class OrderItemStatusUpdated implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
+        $this->orderItem->loadMissing('item.category.counters');
+
+        $isJuiceBarItem = $this->orderItem->item?->category?->counters?->contains(
+            fn($counter) => strcasecmp($counter->name, 'Juice Bar') === 0
+        ) ?? false;
+
         return [
-            'order_item_id' => $this->orderItem->id,
-            'order_id'      => $this->orderItem->order_id,
-            'item_id'       => $this->orderItem->item_id,
-            'status'        => $this->orderItem->orderItem_status,
+            'order_item_id'       => $this->orderItem->id,
+            'order_id'            => $this->orderItem->order_id,
+            'item_id'             => $this->orderItem->item_id,
+            'status'              => $this->orderItem->orderItem_status,
+            'has_juice_bar_items' => $isJuiceBarItem,
         ];
     }
 }
