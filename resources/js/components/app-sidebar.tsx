@@ -1,52 +1,71 @@
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
-import { LayoutGrid, User, Users, Armchair, SquareStack, ClipboardList, ShoppingBag, ShoppingCart } from 'lucide-react';
+import { type NavItem, type SharedData, type User } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
+import { LayoutGrid, User as UserIcon, Users, Armchair, SquareStack, ClipboardList, ShoppingBag, ShoppingCart } from 'lucide-react';
 import AppLogo from './app-logo';
 
-const mainNavItems: NavItem[] = [
+type SidebarNavItem = NavItem & {
+    visibleFor: User['type'][];
+};
+
+const mainNavItems: SidebarNavItem[] = [
     {
         title: 'Dashboard',
         url: '/dashboard',
         icon: LayoutGrid,
+        visibleFor: ['admin', 'staff'],
     },
     {
         title: 'Orders',
         url: '/orders',
         icon: ShoppingBag,
+        visibleFor: ['admin'],
     },
     {
         title: 'Active Carts',
         url: '/carts',
         icon: ShoppingCart,
+        visibleFor: ['admin'],
     },
     {
         title: 'Users',
         url: '/users',
-        icon: User,
+        icon: UserIcon,
+        visibleFor: ['admin'],
     },
     {
         title: 'Customers',
         url: '/customers',
         icon: Users,
+        visibleFor: ['admin'],
     },
     {
         title: 'Tables',
         url: '/tables',
         icon: Armchair,
+        visibleFor: ['admin'],
     },
     {
         title: 'Categories',
         url: '/categories',
         icon: SquareStack,
+        visibleFor: ['admin'],
     },
     {
         title: 'Items',
         url: '/items',
         icon: ClipboardList,
+        visibleFor: ['admin'],
+    },
+    {
+        title: 'Juice Bar',
+        url: '/juice-bar',
+        icon: ShoppingBag,
+        visibleFor: ['admin', 'staff'],
     }
+
 
 ];
 
@@ -64,6 +83,10 @@ const mainNavItems: NavItem[] = [
 // ];
 
 export function AppSidebar() {
+    const page = usePage<SharedData>();
+    const { auth } = page.props;
+    const visibleNavItems = mainNavItems.filter((item) => item.visibleFor.includes(auth.user.type));
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
@@ -79,7 +102,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={visibleNavItems} />
             </SidebarContent>
 
             <SidebarFooter>

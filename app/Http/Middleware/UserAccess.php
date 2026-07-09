@@ -15,7 +15,9 @@ class UserAccess
      */
     public function handle(Request $request, Closure $next, $type): Response
     {
-        if (auth()->user()->type == $type) {
+        $allowedTypes = array_map('trim', explode(',', (string) $type));
+
+        if (in_array(auth()->user()->type, $allowedTypes, true)) {
             return $next($request);
         }
 

@@ -12,7 +12,6 @@ Route::get('/', function () {
 
 
 Route::middleware(['auth', 'user-access:admin'])->group(function () {
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::resource('users', UserController::class)->except(['show']);
     Route::resource('customers', \App\Http\Controllers\CustomerController::class)->except(['show']);
 
@@ -54,7 +53,9 @@ Route::middleware(['auth', 'user-access:chef'])->group(function () {
 
 });
 
-Route::middleware(['auth', 'user-access:staff'])->group(function () {
+Route::middleware(['auth', 'user-access:admin,staff'])->group(function () {
+    Route::get('/juice-bar', [\App\Http\Controllers\OrderController::class, 'juiceBar'])->name('juice-bar.index');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
 });
 

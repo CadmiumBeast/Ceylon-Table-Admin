@@ -193,4 +193,26 @@ class OrderController extends Controller
 
     return view('orders.receipt', compact('order', 'servedBy'));
     }
+
+    public function juiceBar()
+    {
+        $orders = Order::with([
+            'user',
+            'table',
+            'items' => function ($query) {
+                $query->whereHas('item.category.counters', function ($counterQuery) {
+                    $counterQuery->whereRaw('LOWER(name) = ?', ['juice bar']);
+                })->with(['item.category.counters']);
+            },
+        ])
+            ->whereHas('items.item.category.counters', function ($counterQuery) {
+                $counterQuery->whereRaw('LOWER(name) = ?', ['juice bar']);
+            })
+            ->orderByDesc('created_at')
+            ->get();
+
+        return Inertia::render('juice-bar/index', [
+            'orders' => $orders,
+        ]);
+    }
 }

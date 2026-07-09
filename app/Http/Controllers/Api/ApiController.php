@@ -282,7 +282,7 @@ class ApiController extends Controller
                 'ordered_time' => Carbon::now(),
             ]);
 
-            $order->load('items.item', 'table');
+            $order->load('items.item.category.counters', 'table');
 
             \Log::info('Broadcasting OrderPlaced', ['order_id' => $order->id]);
             broadcast(new OrderPlaced($order));
@@ -369,6 +369,7 @@ class ApiController extends Controller
 
             // 5. Fire Event (Only send to kitchen if not waiting on bank transfer)
             if ($order_status === 'pending') {
+                $order->load('items.item.category.counters', 'table');
                 broadcast(new OrderPlaced($order));
             }
 
