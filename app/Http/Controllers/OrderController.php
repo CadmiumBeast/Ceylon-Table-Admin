@@ -192,5 +192,5 @@ class OrderController extends Controller
     $servedBy = $order->user?->name ?? 'Staff'; // or pass the staff user separately
 
     return view('orders.receipt', compact('order', 'servedBy'));
-}
+    }
 }

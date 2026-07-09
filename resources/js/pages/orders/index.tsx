@@ -114,9 +114,23 @@ export default function OrdersIndex({ orders }: Props) {
                                             {new Date(order.created_at).toLocaleDateString()}
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <Button variant="outline" size="sm" asChild>
-                                                <Link href={route('orders.show', order.id)}>View</Link>
-                                            </Button>
+                                            <div className="flex justify-end gap-2">
+                                                <Button variant="outline" size="sm" asChild>
+                                                    <Link href={route('orders.show', order.id)}>View</Link>
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        const receiptWindow = window.open(route('orders.receipt', order.id), '_blank');
+                                                        receiptWindow?.addEventListener('load', () => {
+                                                            receiptWindow.print();
+                                                        });
+                                                    }}
+                                                >
+                                                    Print
+                                                </Button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))

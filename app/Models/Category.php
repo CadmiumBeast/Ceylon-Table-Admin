@@ -10,10 +10,17 @@ class Category extends Model
         'name',
         'description',
         'is_active',
+        'image',
     ];
 
     public function items()
     {
         return $this->hasMany(Item::class);
     }
+
+    public function counters()
+    {
+        return $this->belongsToMany(Counter::class)->withTimestamps();
+    }
+
 }

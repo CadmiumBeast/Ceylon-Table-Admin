@@ -23,6 +23,8 @@
             padding: 6mm 4mm;
             color: #000;
             background: #fff;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
         .center { text-align: center; }
@@ -39,28 +41,30 @@
 
         .shop-address {
             font-size: 10px;
+            font-weight: bold;
             text-align: center;
             margin-top: 3px;
             line-height: 1.5;
-            color: #222;
+            color: #000;
         }
 
         .shop-tel {
             font-size: 10px;
+            font-weight: bold;
             text-align: center;
             margin-top: 2px;
-            color: #222;
+            color: #000;
         }
 
         .divider {
             border: none;
-            border-top: 1px dashed #000;
+            border-top: 1.5px dashed #000;
             margin: 5px 0;
         }
 
         .divider-solid {
             border: none;
-            border-top: 1px solid #000;
+            border-top: 1.5px solid #000;
             margin: 5px 0;
         }
 
@@ -68,6 +72,7 @@
             display: flex;
             justify-content: space-between;
             margin: 2px 0;
+            color: #000;
         }
 
         .items-table {
@@ -80,8 +85,9 @@
             font-weight: bold;
             text-align: left;
             padding: 2px 0;
-            border-bottom: 1px dashed #000;
+            border-bottom: 1.5px dashed #000;
             font-size: 10px;
+            color: #000;
         }
 
         .items-table th.right,
@@ -92,6 +98,7 @@
         .items-table td {
             padding: 2px 0;
             vertical-align: top;
+            color: #000;
         }
 
         .item-name {
@@ -110,8 +117,8 @@
         .totals .total-line {
             font-size: 13px;
             font-weight: bold;
-            border-top: 1px solid #000;
-            border-bottom: 1px solid #000;
+            border-top: 1.5px solid #000;
+            border-bottom: 1.5px solid #000;
             padding: 4px 0;
             margin-top: 4px;
         }
@@ -127,8 +134,9 @@
         .footer {
             margin-top: 10px;
             font-size: 10px;
+            font-weight: bold;
             text-align: center;
-            color: #333;
+            color: #000;
             line-height: 1.7;
         }
 
@@ -196,7 +204,7 @@
             {{-- Unit price line if qty > 1 --}}
             @if($orderItem->quantity > 1)
             <tr>
-                <td colspan="2" style="font-size:9px; color:#555; padding-left:4px;">
+                <td colspan="2" style="font-size:9px; font-weight:bold; color:#000; padding-left:4px;">
                     @ Rs. {{ number_format($orderItem->price, 2) }} each
                 </td>
                 <td></td>
@@ -245,7 +253,12 @@
     </div>
 
     <script>
-        window.onload = function () { window.print(); };
+        window.onload = function () {
+            window.print();
+            window.onafterprint = function () {
+                window.close();
+            };
+        };
     </script>
 </body>
 </html>

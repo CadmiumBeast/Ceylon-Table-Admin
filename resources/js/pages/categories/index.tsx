@@ -8,6 +8,7 @@ type CategoryRecord = {
     id: number;
     name: string;
     description?: string;
+    image?: string;
     is_active: boolean;
     created_at: string;
 };
@@ -22,6 +23,14 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: '/categories',
     },
 ];
+
+const getImageUrl = (image: string) => {
+    if (image.startsWith('http://') || image.startsWith('https://')) {
+        return image;
+    }
+
+    return `https://ceylontable.s3.ap-southeast-1.amazonaws.com/items/${image}`;
+};
 
 export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
     return (
@@ -43,6 +52,7 @@ export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
                     <table className="w-full min-w-[720px] text-sm">
                         <thead className="bg-muted/40 text-left">
                             <tr>
+                                                <th className="px-4 py-3 font-medium">Image</th>
                                 <th className="px-4 py-3 font-medium">Name</th>
                                 <th className="px-4 py-3 font-medium">Description</th>
                                 <th className="px-4 py-3 font-medium">Active</th>
@@ -60,6 +70,15 @@ export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
                             ) : (
                                 categories.map((cat) => (
                                     <tr key={cat.id} className="border-t">
+                                        <td className="px-4 py-3 font-medium">
+                                            {cat.image ? (
+                                                <img src={getImageUrl(cat.image)} alt={cat.name} className="h-16 w-16 rounded-md object-cover" />
+                                            ) : (
+                                                <div className="bg-muted h-16 w-16 flex items-center justify-center rounded-md">
+                                                    <span className="text-xs text-muted-foreground">No Image</span>
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="px-4 py-3 font-medium">{cat.name}</td>
                                         <td className="px-4 py-3">{cat.description ?? '—'}</td>
                                         <td className="px-4 py-3">
