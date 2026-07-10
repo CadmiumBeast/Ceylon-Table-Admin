@@ -193,21 +193,21 @@ class ApiController extends Controller
 
     public function getCartItems(Request $request, $cartId)
     {
-        $cartItems = \App\Models\CartItem::where('cart_id', $cartId)->with('item')->get();
+        $cartItems = \App\Models\CartItem::where('cart_id', $cartId)
+            ->with('item')
+            ->get()
+            ->map(function ($cartItem) {
+                return [
+                    'id' => $cartItem->id,
+                    'item_id' => $cartItem->item_id,
+                    'quantity' => $cartItem->quantity,
+                    'item' => $cartItem->item,
+                ];
+            });
 
-        //Group cart items by item_id and sum quantities
-        $groupedItems = $cartItems->groupBy('item_id')->map(function ($items) {
-            return [
-                'item_id' => $items->first()->item_id,
-                'quantity' => $items->sum('quantity'),
-                'item' => $items->first()->item,
-            ];
-        })->values();
-
-
-        return response()->json($groupedItems);
+        return response()->json($cartItems);
     }
-
+    
     public function updateCartItemQuantity(Request $request, $cartItemId)
     {
         try {
