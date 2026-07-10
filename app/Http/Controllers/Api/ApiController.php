@@ -112,14 +112,13 @@ class ApiController extends Controller
     // Cart
     public function addCartItem(Request $request)
     {
-        try{
+        try {
             $request->validate([
                 'item_id' => 'required|exists:items,id',
                 'quantity' => 'required|integer|min:1',
             ]);
 
             if (!$request->get('table_id')) {
-
                 $cart = \App\Models\Cart::where('user_id', $request->user()->id)
                     ->whereNull('table_id')
                     ->first();
@@ -132,7 +131,7 @@ class ApiController extends Controller
                 }
 
                 $request->merge(['cart_id' => $cart->id]);
-            }else{
+            } else {
                 $cart = \App\Models\Cart::where('user_id', $request->user()->id)
                     ->where('table_id', $request->get('table_id'))
                     ->first();
@@ -152,22 +151,29 @@ class ApiController extends Controller
                 return response()->json(['error' => 'Item not found or not available'], 404);
             }
 
-            $cartItem = \App\Models\CartItem::create([
-                'cart_id' => $request->get('cart_id'),
-                'item_id' => $request->get('item_id'),
-                'quantity' => $request->get('quantity'),
-            ]);
+            // Find-or-increment: one CartItem row per (cart_id, item_id).
+            $cartItem = \App\Models\CartItem::where('cart_id', $request->get('cart_id'))
+                ->where('item_id', $request->get('item_id'))
+                ->first();
+
+            if ($cartItem) {
+                $cartItem->increment('quantity', $request->get('quantity'));
+            } else {
+                $cartItem = \App\Models\CartItem::create([
+                    'cart_id' => $request->get('cart_id'),
+                    'item_id' => $request->get('item_id'),
+                    'quantity' => $request->get('quantity'),
+                ]);
+            }
 
             $item->decrement('quantity', $request->get('quantity'));
 
-            return response()->json($cartItem, 201);
-        }catch(\Exception $e){
+            return response()->json($cartItem->fresh(), 201);
+        } catch (\Exception $e) {
             \Log::error($e->getMessage());
             return response()->json(['error' => 'An error occurred'], 500);
         }
-
     }
-
     public function removeCartItem(Request $request, $cartItemId)
     {
         $cartItem = \App\Models\CartItem::find($cartItemId);
@@ -200,6 +206,42 @@ class ApiController extends Controller
 
 
         return response()->json($groupedItems);
+    }
+
+    public function updateCartItemQuantity(Request $request, $cartItemId)
+    {
+        try {
+            $request->validate([
+                'quantity' => 'required|integer|min:1',
+            ]);
+
+            $cartItem = \App\Models\CartItem::find($cartItemId);
+            if (!$cartItem) {
+                return response()->json(['error' => 'Cart item not found'], 404);
+            }
+
+            $item = $cartItem->item;
+            $newQuantity = $request->get('quantity');
+            $diff = $newQuantity - $cartItem->quantity; // positive = needs more stock
+
+            if ($item) {
+                if ($diff > 0 && $item->quantity < $diff) {
+                    return response()->json(['error' => 'Not enough stock available'], 400);
+                }
+                if ($diff > 0) {
+                    $item->decrement('quantity', $diff);
+                } elseif ($diff < 0) {
+                    $item->increment('quantity', abs($diff));
+                }
+            }
+
+            $cartItem->update(['quantity' => $newQuantity]);
+
+            return response()->json($cartItem->fresh('item'));
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
     }
 
     //Order
