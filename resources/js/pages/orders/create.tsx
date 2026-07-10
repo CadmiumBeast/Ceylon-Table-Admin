@@ -139,7 +139,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Create Order" />
 
-            <div className="mx-auto max-w-5xl space-y-6 p-4">
+            <div className="mx-auto max-w-7xl space-y-6 p-4">
                 {/* Step indicator */}
                 <div className="flex items-center gap-2">
                     {([1, 2, 3] as Step[]).map((s) => (
@@ -235,46 +235,62 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
 
                 {/* Step 2: Item selection */}
                 {step === 2 && (
-                    <div className="grid gap-4 lg:grid-cols-3">
-                        {/* Menu */}
-                        <div className="lg:col-span-2 rounded-lg border bg-card p-4 space-y-4">
-                            <h2 className="text-lg font-medium">Menu</h2>
+                    <div className="grid gap-4 lg:grid-cols-12">
+                        {/* Categories sidebar */}
+                        <aside className="rounded-lg border bg-card p-4 lg:col-span-3">
+                            <h2 className="text-lg font-medium">Categories</h2>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Choose a category to view its items.
+                            </p>
 
-                            {/* Category tabs */}
-                            <div
-                                className="flex gap-2 overflow-x-auto pb-1"
-                                style={{ scrollbarWidth: 'none' }}
-                            >
+                            <div className="mt-4 space-y-2 max-h-[520px] overflow-y-auto pr-1">
                                 {categories.map((cat) => (
                                     <button
                                         key={cat.id}
                                         onClick={() => setSelectedCatId(cat.id)}
-                                        className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                                        className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left text-sm font-medium transition-colors ${
                                             selectedCatId === cat.id
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                                ? 'border-primary bg-primary/10 text-primary'
+                                                : 'bg-background hover:border-primary/60 hover:bg-muted/50'
                                         }`}
                                     >
-                                        {cat.name}
+                                        <span>{cat.name}</span>
+                                        <Badge variant="secondary" className="ml-3">
+                                            {cat.items.length}
+                                        </Badge>
                                     </button>
                                 ))}
                             </div>
+                        </aside>
 
-                            {/* Items grid */}
-                            {selectedCat && (
-                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                                    {selectedCat.items.length === 0 ? (
-                                        <p className="col-span-3 text-sm text-muted-foreground py-4">
-                                            No items in this category.
-                                        </p>
-                                    ) : (
-                                        selectedCat.items.map((item) => {
+                        {/* Middle items */}
+                        <div className="rounded-lg border bg-card p-4 space-y-4 lg:col-span-6">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="text-lg font-medium">Items</h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        {selectedCat ? selectedCat.name : 'No category selected'}
+                                    </p>
+                                </div>
+                                <Badge variant="outline">
+                                    {selectedCat?.items.length ?? 0} items
+                                </Badge>
+                            </div>
+
+                            {selectedCat ? (
+                                selectedCat.items.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground py-4">
+                                        No items in this category.
+                                    </p>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                                        {selectedCat.items.map((item) => {
                                             const inCart = cart.find((e) => e.item.id === item.id);
                                             return (
                                                 <button
                                                     key={item.id}
                                                     onClick={() => addToCart(item)}
-                                                    className="rounded-lg border bg-background p-3 text-left hover:border-primary hover:bg-primary/5 transition-colors"
+                                                    className="rounded-lg border bg-background p-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
                                                 >
                                                     {item.image_url && (
                                                         <img
@@ -286,39 +302,48 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                                     <p className="text-sm font-medium leading-tight">
                                                         {item.name}
                                                     </p>
-                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                    <p className="mt-1 text-xs text-muted-foreground">
                                                         Rs. {Number(item.price).toFixed(2)}
                                                     </p>
                                                     {inCart && (
                                                         <Badge className="mt-2 text-xs" variant="secondary">
-                                                            {inCart.quantity} in cart
+                                                            {inCart.quantity} selected
                                                         </Badge>
                                                     )}
                                                 </button>
                                             );
-                                        })
-                                    )}
-                                </div>
+                                        })}
+                                    </div>
+                                )
+                            ) : (
+                                <p className="text-sm text-muted-foreground py-4">
+                                    Select a category from the left sidebar.
+                                </p>
                             )}
                         </div>
 
-                        {/* Cart */}
-                        <div className="rounded-lg border bg-card p-4 space-y-4 flex flex-col">
-                            <h2 className="text-lg font-medium">Cart</h2>
+                        {/* Selected items */}
+                        <aside className="rounded-lg border bg-card p-4 space-y-4 flex flex-col lg:col-span-3">
+                            <div>
+                                <h2 className="text-lg font-medium">Selected Items</h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Items added to this order.
+                                </p>
+                            </div>
 
                             {cart.length === 0 ? (
                                 <p className="text-sm text-muted-foreground flex-1">
-                                    No items added yet. Click items from the menu.
+                                    No items added yet. Click items from the middle panel.
                                 </p>
                             ) : (
                                 <div className="flex-1 space-y-2 overflow-y-auto max-h-[400px]">
                                     {cart.map((entry) => (
                                         <div
                                             key={entry.item.id}
-                                            className="flex items-center justify-between gap-2 text-sm"
+                                            className="flex items-center justify-between gap-2 rounded-md border bg-background p-2 text-sm"
                                         >
-                                            <div className="flex-1 min-w-0">
-                                                <p className="font-medium truncate">{entry.item.name}</p>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate font-medium">{entry.item.name}</p>
                                                 <p className="text-xs text-muted-foreground">
                                                     Rs. {Number(entry.item.price).toFixed(2)} each
                                                 </p>
@@ -363,7 +388,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                     Next: Confirm
                                 </Button>
                             </div>
-                        </div>
+                        </aside>
                     </div>
                 )}
 

@@ -670,7 +670,7 @@ class ApiController extends Controller
         try {
             $validated = $request->validate([
                 'rating' => 'required|integer|min:1|max:5',
-                'comment' => 'nullable|string|max:1000',
+                'rating_comment' => 'nullable|string|max:1000',
             ]);
 
             $user = $request->user();
