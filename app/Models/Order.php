@@ -18,6 +18,9 @@ class Order extends Model
         'user_id',
         'table_id',
         'delivery_address',
+        'rating_score',
+        'rating_comment',
+        'rated_at',
     ];
 
     public function user()

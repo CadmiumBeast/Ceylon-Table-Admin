@@ -21,6 +21,28 @@ use Illuminate\Support\Facades\DB;
 
 class ApiController extends Controller
 {
+    private function getOrCreateActiveCartForUser(int $userId, ?int $tableId = null): \App\Models\Cart
+    {
+        $query = \App\Models\Cart::where('user_id', $userId);
+
+        if ($tableId === null) {
+            $query->whereNull('table_id');
+        } else {
+            $query->where('table_id', $tableId);
+        }
+
+        $cart = $query->first();
+
+        if (!$cart) {
+            $cart = \App\Models\Cart::create([
+                'user_id' => $userId,
+                'table_id' => $tableId,
+            ]);
+        }
+
+        return $cart;
+    }
+
     //User
 
     public function getDailyStats($userId)
@@ -109,6 +131,22 @@ class ApiController extends Controller
         return response()->json($items);
     }
 
+    public function getOrderHistory(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['error' => 'Unauthorized'], 401);
+        }
+
+        $orders = Order::with(['items.item', 'table'])
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json($orders, 200);
+    }
+
     // Cart
     public function addCartItem(Request $request)
     {
@@ -118,33 +156,12 @@ class ApiController extends Controller
                 'quantity' => 'required|integer|min:1',
             ]);
 
-            if (!$request->get('table_id')) {
-                $cart = \App\Models\Cart::where('user_id', $request->user()->id)
-                    ->whereNull('table_id')
-                    ->first();
+            $cart = $this->getOrCreateActiveCartForUser(
+                $request->user()->id,
+                $request->get('table_id') ? (int) $request->get('table_id') : null
+            );
 
-                if (!$cart) {
-                    $cart = \App\Models\Cart::create([
-                        'user_id' => $request->user()->id,
-                        'table_id' => null,
-                    ]);
-                }
-
-                $request->merge(['cart_id' => $cart->id]);
-            } else {
-                $cart = \App\Models\Cart::where('user_id', $request->user()->id)
-                    ->where('table_id', $request->get('table_id'))
-                    ->first();
-
-                if (!$cart) {
-                    $cart = \App\Models\Cart::create([
-                        'user_id' => $request->user()->id,
-                        'table_id' => $request->get('table_id'),
-                    ]);
-                }
-
-                $request->merge(['cart_id' => $cart->id]);
-            }
+            $request->merge(['cart_id' => $cart->id]);
 
             $item = \App\Models\Item::find($request->get('item_id'));
             if (!$item || !$item->is_active || $item->quantity < $request->get('quantity')) {
@@ -207,7 +224,7 @@ class ApiController extends Controller
 
         return response()->json($cartItems);
     }
-    
+
     public function updateCartItemQuantity(Request $request, $cartItemId)
     {
         try {
@@ -577,6 +594,111 @@ class ApiController extends Controller
 
             return response()->json(['message' => 'Order closed successfully']);
 
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
+    }
+
+    public function repeatPastOrder(Request $request, $orderId)
+    {
+        try {
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
+
+            $order = Order::with('items.item')->where('id', $orderId)->where('user_id', $user->id)->first();
+
+            if (!$order) {
+                return response()->json(['error' => 'Order not found'], 404);
+            }
+
+            foreach ($order->items as $orderItem) {
+                $item = $orderItem->item;
+
+                if (!$item || !$item->is_active) {
+                    return response()->json([
+                        'error' => 'One or more items from the original order are no longer available',
+                    ], 400);
+                }
+
+                if ($item->quantity < $orderItem->quantity) {
+                    return response()->json([
+                        'error' => 'Not enough stock available for item ' . $item->name,
+                    ], 400);
+                }
+            }
+
+            return DB::transaction(function () use ($order, $user) {
+                $cart = $this->getOrCreateActiveCartForUser($user->id);
+
+                foreach ($order->items as $orderItem) {
+                    $item = $orderItem->item;
+
+                    $cartItem = \App\Models\CartItem::where('cart_id', $cart->id)
+                        ->where('item_id', $orderItem->item_id)
+                        ->first();
+
+                    if ($cartItem) {
+                        $cartItem->increment('quantity', $orderItem->quantity);
+                    } else {
+                        \App\Models\CartItem::create([
+                            'cart_id' => $cart->id,
+                            'item_id' => $orderItem->item_id,
+                            'quantity' => $orderItem->quantity,
+                        ]);
+                    }
+
+                    $item->decrement('quantity', $orderItem->quantity);
+                }
+
+                return response()->json([
+                    'message' => 'Past order repeated successfully',
+                    'cart_id' => $cart->id,
+                ], 200);
+            });
+        } catch (\Exception $e) {
+            \Log::error($e->getMessage());
+            return response()->json(['error' => 'An error occurred'], 500);
+        }
+    }
+
+    public function ratePastOrder(Request $request, $orderId)
+    {
+        try {
+            $validated = $request->validate([
+                'rating' => 'required|integer|min:1|max:5',
+                'comment' => 'nullable|string|max:1000',
+            ]);
+
+            $user = $request->user();
+
+            if (!$user) {
+                return response()->json(['error' => 'Unauthorized'], 401);
+            }
+
+            $order = Order::where('id', $orderId)->where('user_id', $user->id)->first();
+
+            if (!$order) {
+                return response()->json(['error' => 'Order not found'], 404);
+            }
+
+            if ($order->order_status !== 'completed') {
+                return response()->json(['error' => 'Only completed orders can be rated'], 400);
+            }
+
+            $order->update([
+                'rating_score' => $validated['rating'],
+                'rating_comment' => $validated['comment'] ?? null,
+                'rated_at' => Carbon::now(),
+            ]);
+
+            return response()->json([
+                'message' => 'Order rated successfully',
+                'order' => $order->fresh(),
+            ], 200);
         } catch (\Exception $e) {
             \Log::error($e->getMessage());
             return response()->json(['error' => 'An error occurred'], 500);

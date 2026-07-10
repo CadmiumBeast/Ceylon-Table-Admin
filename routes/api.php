@@ -32,6 +32,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders/{orderId}/update-items', [ApiController::class, 'updateOrderItems']);
     Route::post('/orders/{orderId}/close-order', [ApiController::class, 'closeOrder']);
     Route::post('/customer/checkout', [ApiController::class, 'customerCheckout']);
+    Route::get('/customer/orders/history', [ApiController::class, 'getOrderHistory']);
+    Route::post('/customer/orders/{orderId}/repeat', [ApiController::class, 'repeatPastOrder']);
+    Route::post('/customer/orders/{orderId}/rate', [ApiController::class, 'ratePastOrder']);
 
     // Chef
     Route::get('/chef/dashboard', [ApiController::class, 'getDashboardData']);
