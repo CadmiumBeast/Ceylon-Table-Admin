@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\PrintJobController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ApiController;
@@ -42,6 +43,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/chef/item/{orderitemId}/status', [ApiController::class, 'updateItemStatus']);
     Route::get('/staff/ready-items', [ApiController::class, 'getReadyItems']);
     Route::post('/staff/item/{orderItemId}/serve', [ApiController::class, 'markItemAsServed']);
+
+    Route::get('/print-jobs/pending', [PrintJobController::class, 'pending']);
+    Route::patch('/print-jobs/{printJob}', [PrintJobController::class, 'updateStatus']);
 
     // routes/api.php
     Route::get('/customers/lookup', function (Request $request) {
