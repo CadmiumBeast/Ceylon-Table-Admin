@@ -14,6 +14,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/staff/{userId}/daily-stats', [ApiController::class, 'getDailyStats']);
+    //Delete user account
+    Route::delete('/user', [AuthController::class, 'deleteAccount']);
 
     Route::get('/not-available-tables', [ApiController::class, 'getNotAvailableTables']);
     Route::get('/available-tables', [ApiController::class, 'getAvailableTables']);

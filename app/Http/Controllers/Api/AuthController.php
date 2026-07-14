@@ -132,4 +132,22 @@ class AuthController extends Controller
             ] : null,
         ];
     }
+
+    //Delete user account
+    public function deleteAccount(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // Delete the associated customer record if it exists
+        if ($user->customer) {
+            $user->customer->delete();
+        }
+
+        // Delete the user account
+        $user->delete();
+
+        return response()->json([
+            'message' => 'User account deleted successfully.',
+        ]);
+    }
 }
