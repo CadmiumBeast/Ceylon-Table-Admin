@@ -122,11 +122,22 @@ export default function OrdersIndex({ orders }: Props) {
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => {
-                                                        // Send a silent request to the backend to print
-                                                        router.post(route('orders.silent-print', order.id), {}, {
-                                                            preserveScroll: true,
-                                                            preserveState: true,
-                                                        });
+                                                        // 1. Create a hidden iframe
+                                                        const iframe = document.createElement('iframe');
+                                                        iframe.style.display = 'none';
+
+                                                        // 2. Point it to your existing receipt blade view
+                                                        iframe.src = route('orders.receipt', order.id);
+
+                                                        // 3. Append it to the page (this loads the receipt silently)
+                                                        document.body.appendChild(iframe);
+
+                                                        // 4. Remove the iframe after 5 seconds to keep the DOM clean
+                                                        setTimeout(() => {
+                                                            if (document.body.contains(iframe)) {
+                                                                document.body.removeChild(iframe);
+                                                            }
+                                                        }, 5000);
                                                     }}
                                                 >
                                                     Print
