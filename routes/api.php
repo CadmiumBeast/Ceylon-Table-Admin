@@ -10,6 +10,9 @@ use App\Http\Controllers\Api\ApiController;
 Route::post('/signup', [AuthController::class, 'signup']);
 Route::post('/login', [AuthController::class, 'login']);
 
+Route::get('/print-jobs/pending', [PrintJobController::class, 'pending']);
+Route::patch('/print-jobs/{printJob}', [PrintJobController::class, 'updateStatus']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -46,8 +49,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/staff/ready-items', [ApiController::class, 'getReadyItems']);
     Route::post('/staff/item/{orderItemId}/serve', [ApiController::class, 'markItemAsServed']);
 
-    Route::get('/print-jobs/pending', [PrintJobController::class, 'pending']);
-    Route::patch('/print-jobs/{printJob}', [PrintJobController::class, 'updateStatus']);
+
 
     // routes/api.php
     Route::get('/customers/lookup', function (Request $request) {
