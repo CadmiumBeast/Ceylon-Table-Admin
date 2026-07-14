@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Head, Link } from '@inertiajs/react';
@@ -32,7 +32,6 @@ export default function ItemsIndex({ categories }: ItemsIndexProps) {
     const [selectedId, setSelectedId] = useState<number | null>(
         categories.length > 0 ? categories[0].id : null
     );
-    const sliderRef = useRef<HTMLDivElement>(null);
 
     const selected = categories.find((c) => c.id === selectedId) ?? null;
 
@@ -51,35 +50,32 @@ export default function ItemsIndex({ categories }: ItemsIndexProps) {
                 {categories.length === 0 ? (
                     <div className="rounded-lg border bg-card p-6 text-center">No categories found.</div>
                 ) : (
-                    <>
-                        {/* Category slider */}
-                        <div
-                            ref={sliderRef}
-                            className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide"
-                            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                        >
-                            {categories.map((cat) => (
-                                <button
-                                    key={cat.id}
-                                    onClick={() => setSelectedId(cat.id)}
-                                    className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                                        selectedId === cat.id
-                                            ? 'bg-primary text-primary-foreground shadow'
-                                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                    }`}
-                                >
-                                    {cat.name}
-                                    <span className="ml-1.5 rounded-full bg-background/20 px-1.5 py-0.5 text-xs">
-                                        {cat.items.length}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
+                    <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+                        <aside className="rounded-lg border bg-card p-3 lg:max-h-[calc(100vh-220px)] lg:overflow-y-auto">
+                            <h2 className="mb-2 px-2 text-sm font-medium text-muted-foreground">Categories</h2>
+                            <div className="space-y-2">
+                                {categories.map((cat) => (
+                                    <button
+                                        key={cat.id}
+                                        onClick={() => setSelectedId(cat.id)}
+                                        className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm font-medium transition-colors ${
+                                            selectedId === cat.id
+                                                ? 'bg-primary text-primary-foreground shadow'
+                                                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                        }`}
+                                    >
+                                        <span>{cat.name}</span>
+                                        <span className="rounded-full bg-background/20 px-1.5 py-0.5 text-xs">
+                                            {cat.items.length}
+                                        </span>
+                                    </button>
+                                ))}
+                            </div>
+                        </aside>
 
-                        {/* Items table for selected category */}
                         {selected && (
-                            <div className="rounded-lg border bg-card p-4">
-                                <div className="flex items-center justify-between mb-3">
+                            <section className="rounded-lg border bg-card p-4">
+                                <div className="mb-3 flex items-center justify-between">
                                     <h2 className="text-lg font-medium">{selected.name}</h2>
                                     <Badge>{selected.items.length} items</Badge>
                                 </div>
@@ -154,9 +150,9 @@ export default function ItemsIndex({ categories }: ItemsIndexProps) {
                                         </tbody>
                                     </table>
                                 </div>
-                            </div>
+                            </section>
                         )}
-                    </>
+                    </div>
                 )}
             </div>
         </AppLayout>

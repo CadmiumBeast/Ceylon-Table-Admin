@@ -49,7 +49,7 @@ export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
                 </div>
 
                 <div className="overflow-x-auto rounded-lg border bg-card shadow-xs">
-                    <table className="w-full min-w-[720px] text-sm">
+                    <table className="w-full min-w-[640px] text-sm lg:min-w-[720px]">
                         <thead className="bg-muted/40 text-left">
                             <tr>
                                                 <th className="px-4 py-3 font-medium">Image</th>
@@ -63,7 +63,7 @@ export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
                         <tbody>
                             {categories.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                                    <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                                         No categories found.
                                     </td>
                                 </tr>

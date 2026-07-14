@@ -26,6 +26,7 @@ type SidebarContext = {
     openMobile: boolean;
     setOpenMobile: (open: boolean) => void;
     isMobile: boolean;
+    isOverlay: boolean;
     toggleSidebar: () => void;
 };
 
@@ -49,7 +50,23 @@ const SidebarProvider = React.forwardRef<
     }
 >(({ defaultOpen = true, open: openProp, onOpenChange: setOpenProp, className, style, children, ...props }, ref) => {
     const isMobile = useIsMobile();
+    const [isNarrowDesktop, setIsNarrowDesktop] = React.useState(false);
     const [openMobile, setOpenMobile] = React.useState(false);
+
+    React.useEffect(() => {
+        const mql = window.matchMedia('(max-width: 1279px)');
+
+        const onChange = () => {
+            setIsNarrowDesktop(mql.matches);
+        };
+
+        onChange();
+        mql.addEventListener('change', onChange);
+
+        return () => mql.removeEventListener('change', onChange);
+    }, []);
+
+    const isOverlay = isMobile || isNarrowDesktop;
 
     // This is the internal state of the sidebar.
     // We use openProp and setOpenProp for control from outside the component.
@@ -72,20 +89,20 @@ const SidebarProvider = React.forwardRef<
 
     // Helper to toggle the sidebar.
     const toggleSidebar = React.useCallback(() => {
-        return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open);
-    }, [isMobile, setOpen, setOpenMobile]);
+        return isOverlay ? setOpenMobile((open) => !open) : setOpen((open) => !open);
+    }, [isOverlay, setOpen, setOpenMobile]);
 
     // Listen for mobile navigation events
     React.useEffect(() => {
         const handleMobileNavigation = () => {
-            if (isMobile) {
+            if (isOverlay) {
                 setOpenMobile(false);
             }
         };
 
         window.addEventListener('mobile-navigation', handleMobileNavigation);
         return () => window.removeEventListener('mobile-navigation', handleMobileNavigation);
-    }, [isMobile, setOpenMobile]);
+    }, [isOverlay, setOpenMobile]);
 
     // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {
@@ -110,11 +127,12 @@ const SidebarProvider = React.forwardRef<
             open,
             setOpen,
             isMobile,
+            isOverlay,
             openMobile,
             setOpenMobile,
             toggleSidebar,
         }),
-        [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar],
+        [state, open, setOpen, isMobile, isOverlay, openMobile, setOpenMobile, toggleSidebar],
     );
 
     return (
@@ -148,7 +166,7 @@ const Sidebar = React.forwardRef<
         collapsible?: 'offcanvas' | 'icon' | 'none';
     }
 >(({ side = 'left', variant = 'sidebar', collapsible = 'offcanvas', className, children, ...props }, ref) => {
-    const { isMobile, state, openMobile, setOpenMobile } = useSidebar();
+    const { isOverlay, state, openMobile, setOpenMobile } = useSidebar();
 
     if (collapsible === 'none') {
         return (
@@ -158,7 +176,7 @@ const Sidebar = React.forwardRef<
         );
     }
 
-    if (isMobile) {
+    if (isOverlay) {
         return (
             <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
                 <SheetContent
