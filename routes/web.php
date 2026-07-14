@@ -43,7 +43,7 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::patch('/orders/{order}/payment-status', [\App\Http\Controllers\OrderController::class, 'updatePaymentStatus'])->name('orders.update-payment-status');
     Route::patch('/orders/{order}/items/{orderItem}/status', [\App\Http\Controllers\OrderController::class, 'updateItemStatus'])->name('orders.update-item-status');
     Route::get('/orders/{order}/receipt', [\App\Http\Controllers\OrderController::class, 'receipt'])->name('orders.receipt');
-
+    Route::post('/orders/{order}/silent-print', [\App\Http\Controllers\OrderController::class, 'silentPrint'])->name('orders.silent-print');
     // Cart routes
     Route::get('/carts', [\App\Http\Controllers\CartController::class, 'index'])->name('carts.index');
 });

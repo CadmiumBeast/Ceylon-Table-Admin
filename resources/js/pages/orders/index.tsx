@@ -122,9 +122,10 @@ export default function OrdersIndex({ orders }: Props) {
                                                     variant="outline"
                                                     size="sm"
                                                     onClick={() => {
-                                                        const receiptWindow = window.open(route('orders.receipt', order.id), '_blank');
-                                                        receiptWindow?.addEventListener('load', () => {
-                                                            receiptWindow.print();
+                                                        // Send a silent request to the backend to print
+                                                        router.post(route('orders.silent-print', order.id), {}, {
+                                                            preserveScroll: true,
+                                                            preserveState: true,
                                                         });
                                                     }}
                                                 >

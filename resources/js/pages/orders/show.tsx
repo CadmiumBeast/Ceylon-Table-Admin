@@ -164,9 +164,16 @@ export default function OrderShow({ order }: Props) {
                     <div className="flex items-center gap-2">
                         <Button
                             variant="outline"
-                            onClick={() => window.open(route('orders.receipt', order.id), '_blank')}
+                            size="sm"
+                            onClick={() => {
+                                // Send a silent request to the backend to print
+                                router.post(route('orders.silent-print', order.id), {}, {
+                                    preserveScroll: true,
+                                    preserveState: true,
+                                });
+                            }}
                         >
-                            Print Bill
+                            Print
                         </Button>
                         <Button variant="outline" asChild>
                             <Link href={route('orders.index')}>Back to Orders</Link>

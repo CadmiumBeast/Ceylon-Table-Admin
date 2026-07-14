@@ -7,7 +7,7 @@
     <style>
         @page {
             size: auto;
-            margin: 10mm;
+            margin: 0;
         }
 
         * {
@@ -20,9 +20,9 @@
             font-family: Arial, Helvetica, sans-serif;
             font-size: 12px;
             width: 100%;
-            max-width: 92mm;
+            max-width: 80mm;
             margin: 0 auto;
-            padding: 10mm 8mm;
+            padding: 2mm;
             color: #111;
             background: #fff;
             -webkit-print-color-adjust: exact;

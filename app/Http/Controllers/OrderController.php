@@ -16,6 +16,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
+use Mike42\Escpos\Printer;
 
 class OrderController extends Controller
 {
@@ -214,5 +216,118 @@ class OrderController extends Controller
         return Inertia::render('juice-bar/index', [
             'orders' => $orders,
         ]);
+    }
+
+    public function printSummary(Request $request, ShiftReportService $service)
+    {
+        $from = $request->input('from', now()->startOfDay());
+        $to   = $request->input('to', now());
+
+        $data = $service->build($from, $to);
+
+        broadcast(new PrintJobDispatched([
+            'job_type' => 'summary_report',
+            'printer'  => 'counter', // fixed printer key, see below
+            'payload'  => $data,
+        ]));
+
+        return back();
+    }
+
+
+
+    public function directPrintUSB($orderId)
+    {
+        $order = Order::with('items.item')->findOrFail($orderId);
+
+        try {
+            // Connect to the locally shared USB printer
+            // Replace "ReceiptPrinter" with your exact share name
+            $connector = new WindowsPrintConnector("ReceiptPrinter");
+            $printer = new Printer($connector);
+
+            $printer->setJustification(Printer::JUSTIFY_CENTER);
+            $printer->text("Ceylon Table\n");
+            $printer->text("Order: " . $order->order_number . "\n\n");
+
+            $printer->setJustification(Printer::JUSTIFY_LEFT);
+            foreach($order->items as $item) {
+                $printer->text($item->quantity . "x " . $item->item->name . " - Rs." . $item->price . "\n");
+            }
+
+            $printer->feed(2);
+            $printer->cut();
+            $printer->close();
+
+            return response()->json(['status' => 'printed']);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function silentPrint(Order $order)
+    {
+        $order->load(['user', 'table', 'items.item']);
+
+        try {
+            // "ReceiptPrinter" MUST match the share name you set in Step 1
+            $connector = new WindowsPrintConnector("ReceiptPrinter");
+            $printer = new Printer($connector);
+
+            // --- HEADER ---
+            $printer->setJustification(Printer::JUSTIFY_CENTER);
+            $printer->setTextSize(2, 2);
+            $printer->text("Ceylon Table\n");
+            $printer->setTextSize(1, 1);
+            $printer->text("83, St Lucias Street, Kotahena\n");
+            $printer->text("Tel: 011 234 7777\n");
+            $printer->feed();
+
+            $printer->setJustification(Printer::JUSTIFY_LEFT);
+            $printer->text("Order: " . $order->order_number . "\n");
+            $printer->text("Date: " . $order->created_at->format('d M Y, H:i') . "\n");
+            $printer->text("Type: " . str_replace('_', ' ', $order->order_type) . "\n");
+            $printer->text(str_repeat("-", 48) . "\n");
+
+            // --- ITEMS ---
+            foreach($order->items as $orderItem) {
+                $itemName = $orderItem->item->name ?? 'Unknown Item';
+                $qty = $orderItem->quantity;
+                $price = number_format($orderItem->price * $qty, 2);
+
+                // Format line to look like: "2x Kottu           Rs. 1200.00"
+                $printer->text($qty . "x " . $itemName . "\n");
+                $printer->setJustification(Printer::JUSTIFY_RIGHT);
+                $printer->text("Rs. " . $price . "\n");
+                $printer->setJustification(Printer::JUSTIFY_LEFT);
+            }
+
+            $printer->text(str_repeat("-", 48) . "\n");
+
+            // --- TOTALS ---
+            $printer->setJustification(Printer::JUSTIFY_RIGHT);
+            $printer->text("Subtotal: Rs. " . number_format($order->subtotal, 2) . "\n");
+            if ($order->discount > 0) {
+                $printer->text("Discount: Rs. " . number_format($order->discount, 2) . "\n");
+            }
+            $printer->setTextSize(1, 2);
+            $printer->text("TOTAL: Rs. " . number_format($order->total_price, 2) . "\n");
+            $printer->setTextSize(1, 1);
+            $printer->feed();
+
+            // --- FOOTER ---
+            $printer->setJustification(Printer::JUSTIFY_CENTER);
+            $printer->text("Thank you for dining with us!\n");
+
+            // Cut paper and close connection
+            $printer->feed(3);
+            $printer->cut();
+            $printer->close();
+
+            return redirect()->back()->with('success', 'Receipt sent to printer.');
+
+        } catch (\Exception $e) {
+            return redirect()->back()->with('error', 'Printer Error: ' . $e->getMessage());
+        }
     }
 }
