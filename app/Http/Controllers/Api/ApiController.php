@@ -114,6 +114,13 @@ class ApiController extends Controller
     public function getCategories()
     {
         $categories = \App\Models\Category::where('is_active', true)->get();
+        // Send According to the time till 5PM send Lunch and after 5PM send Dinner. Both All the time
+        $currentHour = date('H');
+        if ($currentHour < 17) {
+            $categories = $categories->where('food_type', 'lunch');
+        } else {
+            $categories = $categories->where('food_type', 'dinner');
+        }
         return response()->json($categories);
     }
 

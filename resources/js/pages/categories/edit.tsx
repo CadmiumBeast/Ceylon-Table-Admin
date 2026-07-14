@@ -2,6 +2,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
@@ -11,6 +12,7 @@ import CounterPicker from '@/components/counter-picker';
 interface EditCategoryForm {
     name: string;
     description: string;
+    food_type: 'lunch' | 'dinner' | 'both';
     image: File | null;
     counter_ids: number[];
     [key: string]: string | number[] | File | null;
@@ -20,6 +22,7 @@ type CategoryRecord = {
     id: number;
     name: string;
     description?: string;
+    food_type: 'lunch' | 'dinner' | 'both';
     image?: string | null;
     image_url?: string | null;
     is_active: boolean;
@@ -41,6 +44,7 @@ export default function EditCategory({ category, counters }: { category: Categor
     const { data, setData, put, processing, errors } = useForm<EditCategoryForm>({
         name: category.name ?? '',
         description: category.description ?? '',
+        food_type: category.food_type ?? 'both',
         image: null,
         counter_ids: category.counters?.map((counter) => counter.id) ?? [],
     });
@@ -90,6 +94,21 @@ export default function EditCategory({ category, counters }: { category: Categor
                         <Label htmlFor="description">Description</Label>
                         <Input id="description" value={data.description} onChange={(e) => setData('description', e.target.value)} />
                         <InputError message={errors.description} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="food_type">Food Type</Label>
+                        <Select value={data.food_type} onValueChange={(value) => setData('food_type', value as EditCategoryForm['food_type'])}>
+                            <SelectTrigger id="food_type">
+                                <SelectValue placeholder="Select food type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="lunch">Lunch</SelectItem>
+                                <SelectItem value="dinner">Dinner</SelectItem>
+                                <SelectItem value="both">Both</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.food_type} />
                     </div>
 
                     <div className="grid gap-3">

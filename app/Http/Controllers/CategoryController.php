@@ -27,6 +27,7 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:categories,name'],
             'description' => ['nullable', 'string'],
+            'food_type' => ['required', 'in:lunch,dinner,both'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
             'counter_ids' => ['nullable', 'array'],
             'counter_ids.*' => ['integer', 'exists:counters,id'],
@@ -63,6 +64,7 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:categories,name,' . $category->id],
             'description' => ['nullable', 'string'],
+            'food_type' => ['required', 'in:lunch,dinner,both'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
             'counter_ids' => ['nullable', 'array'],
             'counter_ids.*' => ['integer', 'exists:counters,id'],

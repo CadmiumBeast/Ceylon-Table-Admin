@@ -2,6 +2,7 @@ import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, useForm } from '@inertiajs/react';
@@ -21,6 +22,7 @@ type CounterRecord = {
 interface CreateCategoryForm {
     name: string;
     description: string;
+    food_type: 'lunch' | 'dinner' | 'both';
     image: File | null;
     counter_ids: number[];
     [key: string]: string | number[] | File | null;
@@ -30,6 +32,7 @@ export default function CreateCategory({ counters }: { counters: CounterRecord[]
     const { data, setData, post, processing, errors } = useForm<CreateCategoryForm>({
         name: '',
         description: '',
+        food_type: 'both',
         image: null,
         counter_ids: [],
     });
@@ -79,6 +82,21 @@ export default function CreateCategory({ counters }: { counters: CounterRecord[]
                         <Label htmlFor="description">Description</Label>
                         <Input id="description" value={data.description} onChange={(e) => setData('description', e.target.value)} />
                         <InputError message={errors.description} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="food_type">Food Type</Label>
+                        <Select value={data.food_type} onValueChange={(value) => setData('food_type', value as CreateCategoryForm['food_type'])}>
+                            <SelectTrigger id="food_type">
+                                <SelectValue placeholder="Select food type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="lunch">Lunch</SelectItem>
+                                <SelectItem value="dinner">Dinner</SelectItem>
+                                <SelectItem value="both">Both</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <InputError message={errors.food_type} />
                     </div>
 
                     <div className="grid gap-3">
