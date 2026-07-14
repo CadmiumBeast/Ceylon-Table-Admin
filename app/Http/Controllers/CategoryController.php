@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Category;
 use App\Models\Counter;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class CategoryController extends Controller
 {
@@ -62,12 +63,17 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:categories,name,' . $category->id],
             'description' => ['nullable', 'string'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
             'counter_ids' => ['nullable', 'array'],
             'counter_ids.*' => ['integer', 'exists:counters,id'],
         ]);
 
         $counterIds = $validated['counter_ids'] ?? [];
         unset($validated['counter_ids']);
+
+        if ($request->hasFile('image')) {
+            $validated['image'] = $this->uploadImageToS3($request->file('image'));
+        }
 
         $category->update($validated);
         $category->counters()->sync($counterIds);
@@ -93,20 +99,26 @@ class CategoryController extends Controller
         return redirect()->route('categories.index');
     }
 
+    public function destroy($id)
+    {
+        $category = Category::findOrFail($id);
+        $category->counters()->detach();
+        $category->delete();
+
+        return redirect()->route('categories.index');
+    }
+
     private function uploadImageToS3($file)
     {
         try {
-            $bucket = config('filesystems.disks.s3.bucket');
-            $region = config('filesystems.disks.s3.region');
-            $key = 'items/' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-            $uploaded = \Storage::disk('s3')->putFileAs('items', $file, basename($key));
+            $key = 'categories/' . time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $uploaded = Storage::disk('s3')->putFileAs('categories', $file, basename($key));
 
             if (! $uploaded) {
                 throw new \RuntimeException('S3 upload failed for ' . $key);
             }
 
-            return basename($key);
+            return $uploaded;
         } catch (\Throwable $e) {
             \Log::error('Image upload to S3 failed: ' . $e->getMessage());
             throw $e;
