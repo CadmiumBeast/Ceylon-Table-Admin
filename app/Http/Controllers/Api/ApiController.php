@@ -113,14 +113,21 @@ class ApiController extends Controller
     //Category
     public function getCategories()
     {
-        $categories = \App\Models\Category::where('is_active', true)->get();
-        // Send According to the time till 5PM send Lunch and after 5PM send Dinner. Both All the time
-        $currentHour = date('H');
-        if ($currentHour < 17) {
-            $categories = $categories->where('food_type', 'lunch');
-        } else {
-            $categories = $categories->where('food_type', 'dinner');
-        }
+        $currentHour = Carbon::now()->hour;
+
+        $categories = \App\Models\Category::query()
+            ->where('is_active', true)
+            ->where(function ($query) use ($currentHour) {
+                if ($currentHour < 17) {
+                    $query->whereIn('food_type', ['lunch', 'both'])
+                        ->orWhereNull('food_type');
+                } else {
+                    $query->whereIn('food_type', ['dinner', 'both'])
+                        ->orWhereNull('food_type');
+                }
+            })
+            ->get();
+
         return response()->json($categories);
     }
 
@@ -128,13 +135,42 @@ class ApiController extends Controller
     //Item
     public function getItemsByCategory($categoryId)
     {
-        $items = \App\Models\Item::where('category_id', $categoryId)->where('is_active', true)->get();
+        $currentHour = Carbon::now()->hour;
+
+        $items = \App\Models\Item::query()
+            ->where('category_id', $categoryId)
+            ->where('is_active', true)
+            ->whereHas('category', function ($query) use ($currentHour) {
+                if ($currentHour < 17) {
+                    $query->whereIn('food_type', ['lunch', 'both'])
+                        ->orWhereNull('food_type');
+                } else {
+                    $query->whereIn('food_type', ['dinner', 'both'])
+                        ->orWhereNull('food_type');
+                }
+            })
+            ->get();
+
         return response()->json($items);
     }
 
     public function getAllItems()
     {
-        $items = \App\Models\Item::where('is_active', true)->get();
+        $currentHour = Carbon::now()->hour;
+
+        $items = \App\Models\Item::query()
+            ->where('is_active', true)
+            ->whereHas('category', function ($query) use ($currentHour) {
+                if ($currentHour < 17) {
+                    $query->whereIn('food_type', ['lunch', 'both'])
+                        ->orWhereNull('food_type');
+                } else {
+                    $query->whereIn('food_type', ['dinner', 'both'])
+                        ->orWhereNull('food_type');
+                }
+            })
+            ->get();
+
         return response()->json($items);
     }
 
