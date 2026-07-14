@@ -10,6 +10,9 @@ Route::get('/', function () {
     return Redirect::route('login');
 })->name('home');
 
+Route::get('/privacy-policy', function () {
+    return Inertia::render('PrivacyPolicy');
+})->name('privacy-policy');
 
 Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::resource('users', UserController::class)->except(['show']);

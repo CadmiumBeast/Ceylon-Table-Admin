@@ -13,8 +13,14 @@ class CounterSeeder extends Seeder
     public function run(): void
     {
         $counters = [
-            ['name' => 'Juice Counter'],
-            ['name' => 'Food Counter'],
+            [
+                'name' => 'Juice Counter',
+                'printer_ip' => '192.168.1.211'
+            ],
+            [
+                'name' => 'Kitchen',
+                'printer_ip' => '192.168.1.210'
+            ],
         ];
 
         foreach ($counters as $counter) {
