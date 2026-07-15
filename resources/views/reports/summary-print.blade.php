@@ -14,6 +14,7 @@
         body {
             font-family: 'Courier New', Courier, monospace;
             font-size: 11px;
+            font-weight: 600;
             width: 3.125in;
             padding: 6mm 4mm;
             color: #000;
@@ -23,18 +24,18 @@
         }
 
         .center { text-align: center; }
-        .bold   { font-weight: bold; }
+        .bold   { font-weight: 800; }
 
         .shop-name {
             font-size: 15px;
-            font-weight: bold;
+            font-weight: 800;
             text-align: center;
             letter-spacing: 1px;
         }
 
         .report-title {
             font-size: 12px;
-            font-weight: bold;
+            font-weight: 800;
             text-align: center;
             margin-top: 4px;
             text-transform: uppercase;
@@ -42,39 +43,41 @@
 
         .range {
             font-size: 9.5px;
+            font-weight: 700;
             text-align: center;
             margin-top: 2px;
         }
 
-        .divider { border: none; border-top: 1.5px dashed #000; margin: 5px 0; }
-        .divider-solid { border: none; border-top: 1.5px solid #000; margin: 5px 0; }
+        .divider { border: none; border-top: 2px dashed #000; margin: 5px 0; }
+        .divider-solid { border: none; border-top: 2px solid #000; margin: 5px 0; }
 
         .row {
             display: flex;
             justify-content: space-between;
             margin: 1.5px 0;
+            font-weight: 600;
         }
 
         .section-title {
             font-size: 10.5px;
-            font-weight: bold;
+            font-weight: 800;
             margin: 6px 0 2px;
             text-transform: uppercase;
         }
 
         table { width: 100%; border-collapse: collapse; margin: 2px 0; }
-        th { text-align: left; font-size: 9.5px; border-bottom: 1px dashed #000; padding: 1px 0; }
+        th { text-align: left; font-size: 9.5px; font-weight: 800; border-bottom: 2px dashed #000; padding: 1px 0; }
         th.right, td.right { text-align: right; }
-        td { padding: 1px 0; font-size: 10px; vertical-align: top; }
+        td { padding: 1px 0; font-size: 10px; font-weight: 600; vertical-align: top; }
 
         .order-block { margin: 3px 0; padding-bottom: 3px; border-bottom: 1px dotted #999; }
         .order-block .row { font-size: 10px; }
 
         .total-line {
             font-size: 12px;
-            font-weight: bold;
-            border-top: 1.5px solid #000;
-            border-bottom: 1.5px solid #000;
+            font-weight: 800;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
             padding: 3px 0;
             margin-top: 3px;
         }
@@ -82,11 +85,12 @@
         .footer {
             margin-top: 8px;
             font-size: 9px;
+            font-weight: 700;
             text-align: center;
             line-height: 1.5;
         }
 
-        .empty { text-align: center; font-size: 10px; margin: 6px 0; }
+        .empty { text-align: center; font-size: 10px; font-weight: 700; margin: 6px 0; }
     </style>
 </head>
 <body>

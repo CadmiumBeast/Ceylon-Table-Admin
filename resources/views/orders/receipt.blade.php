@@ -19,6 +19,7 @@
         body {
             font-family: 'Courier New', Courier, monospace;
             font-size: 11px;
+            font-weight: 600;
             width: 3.125in;
             padding: 6mm 4mm;
             color: #000;
@@ -29,11 +30,11 @@
 
         .center { text-align: center; }
         .right  { text-align: right; }
-        .bold   { font-weight: bold; }
+        .bold   { font-weight: 800; }
 
         .shop-name {
             font-size: 16px;
-            font-weight: bold;
+            font-weight: 800;
             text-align: center;
             letter-spacing: 1px;
             text-transform: uppercase;
@@ -41,7 +42,7 @@
 
         .shop-address {
             font-size: 10px;
-            font-weight: bold;
+            font-weight: 700;
             text-align: center;
             margin-top: 3px;
             line-height: 1.5;
@@ -50,7 +51,7 @@
 
         .shop-tel {
             font-size: 10px;
-            font-weight: bold;
+            font-weight: 700;
             text-align: center;
             margin-top: 2px;
             color: #000;
@@ -58,13 +59,13 @@
 
         .divider {
             border: none;
-            border-top: 1.5px dashed #000;
+            border-top: 2px dashed #000;
             margin: 5px 0;
         }
 
         .divider-solid {
             border: none;
-            border-top: 1.5px solid #000;
+            border-top: 2px solid #000;
             margin: 5px 0;
         }
 
@@ -73,6 +74,7 @@
             justify-content: space-between;
             margin: 2px 0;
             color: #000;
+            font-weight: 600;
         }
 
         .items-table {
@@ -82,10 +84,10 @@
         }
 
         .items-table th {
-            font-weight: bold;
+            font-weight: 800;
             text-align: left;
             padding: 2px 0;
-            border-bottom: 1.5px dashed #000;
+            border-bottom: 2px dashed #000;
             font-size: 10px;
             color: #000;
         }
@@ -99,6 +101,7 @@
             padding: 2px 0;
             vertical-align: top;
             color: #000;
+            font-weight: 600;
         }
 
         .item-name {
@@ -116,9 +119,9 @@
 
         .totals .total-line {
             font-size: 13px;
-            font-weight: bold;
-            border-top: 1.5px solid #000;
-            border-bottom: 1.5px solid #000;
+            font-weight: 800;
+            border-top: 2px solid #000;
+            border-bottom: 2px solid #000;
             padding: 4px 0;
             margin-top: 4px;
         }
@@ -126,7 +129,7 @@
         .payment-badge {
             text-align: center;
             font-size: 11px;
-            font-weight: bold;
+            font-weight: 800;
             margin-top: 6px;
             letter-spacing: 0.5px;
         }
@@ -134,7 +137,7 @@
         .footer {
             margin-top: 10px;
             font-size: 10px;
-            font-weight: bold;
+            font-weight: 700;
             text-align: center;
             color: #000;
             line-height: 1.7;
@@ -204,7 +207,7 @@
             {{-- Unit price line if qty > 1 --}}
             @if($orderItem->quantity > 1)
             <tr>
-                <td colspan="2" style="font-size:9px; font-weight:bold; color:#000; padding-left:4px;">
+                <td colspan="2" style="font-size:9px; font-weight:700; color:#000; padding-left:4px;">
                     @ Rs. {{ number_format($orderItem->price, 2) }} each
                 </td>
                 <td></td>
