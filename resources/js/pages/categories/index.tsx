@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
@@ -27,6 +28,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
+    const [search, setSearch] = useState('');
+
+    const filteredCategories = categories.filter((cat) => {
+        const q = search.trim().toLowerCase();
+        if (!q) return true;
+        return (
+            cat.name.toLowerCase().includes(q) ||
+            (cat.description ?? '').toLowerCase().includes(q)
+        );
+    });
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Categories" />
@@ -40,6 +52,21 @@ export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
                     <Button asChild>
                         <Link href={route('categories.create')}>Create Category</Link>
                     </Button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        placeholder="Search categories by name or description..."
+                        className="w-full max-w-sm rounded-md border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/40 sm:w-72"
+                    />
+                    {search && (
+                        <span className="text-xs text-muted-foreground">
+                            {filteredCategories.length} of {categories.length}
+                        </span>
+                    )}
                 </div>
 
                 <div className="overflow-x-auto rounded-lg border bg-card shadow-xs">
@@ -56,14 +83,14 @@ export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
                             </tr>
                         </thead>
                         <tbody>
-                            {categories.length === 0 ? (
+                            {filteredCategories.length === 0 ? (
                                 <tr>
                                     <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                                        No categories found.
+                                        {search ? 'No categories match your search.' : 'No categories found.'}
                                     </td>
                                 </tr>
                             ) : (
-                                categories.map((cat) => (
+                                filteredCategories.map((cat) => (
                                     <tr key={cat.id} className="border-t">
                                         <td className="px-4 py-3 font-medium">
                                             {cat.image_url ? (
