@@ -4,6 +4,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { useEchoPublic } from '@laravel/echo-react';
+import { useState } from 'react';
 
 interface OrderItem {
     id: number;
@@ -49,9 +50,37 @@ const paymentStatusVariant = (status: string): 'secondary' | 'destructive' | 'ou
 };
 
 export default function OrdersIndex({ orders }: Props) {
+    const [processingId, setProcessingId] = useState<number | null>(null);
+
     useEchoPublic('orders', ['.order.placed', '.order.status.updated'], () => {
         router.reload({ only: ['orders'] });
     });
+
+    const markPaid = (order: Order) => {
+        setProcessingId(order.id);
+        router.patch(
+            route('orders.update-payment-status', order.id),
+            { payment_status: 'paid' },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onFinish: () => setProcessingId(null),
+            }
+        );
+    };
+
+    const markCompleted = (order: Order) => {
+        setProcessingId(order.id);
+        router.patch(
+            route('orders.update-status', order.id),
+            { order_status: 'completed' },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onFinish: () => setProcessingId(null),
+            }
+        );
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -69,7 +98,7 @@ export default function OrdersIndex({ orders }: Props) {
                 </div>
 
                 <div className="overflow-x-auto rounded-lg border bg-card shadow-xs">
-                    <table className="w-full min-w-[800px] text-sm">
+                    <table className="w-full min-w-[900px] text-sm">
                         <thead className="bg-muted/40 text-left">
                             <tr>
                                 <th className="px-4 py-3 font-medium">Order #</th>
@@ -92,49 +121,75 @@ export default function OrdersIndex({ orders }: Props) {
                                     </td>
                                 </tr>
                             ) : (
-                                orders.map((order) => (
-                                    <tr key={order.id} className="border-t">
-                                        <td className="px-4 py-3 font-mono text-xs">{order.order_number}</td>
-                                        <td className="px-4 py-3 capitalize">{order.order_type}</td>
-                                        <td className="px-4 py-3">{order.user?.name ?? '—'}</td>
-                                        <td className="px-4 py-3">{order.table?.name ?? '—'}</td>
-                                        <td className="px-4 py-3">{order.items.length}</td>
-                                        <td className="px-4 py-3">Rs. {Number(order.total_price).toFixed(2)}</td>
-                                        <td className="px-4 py-3">
-                                            <Badge variant={orderStatusVariant(order.order_status)} className="capitalize">
-                                                {order.order_status}
-                                            </Badge>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <Badge variant={paymentStatusVariant(order.payment_status)} className="capitalize">
-                                                {order.payment_status}
-                                            </Badge>
-                                        </td>
-                                        <td className="px-4 py-3 text-muted-foreground">
-                                            {new Date(order.created_at).toLocaleDateString()}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <div className="flex justify-end gap-2">
-                                                <Button variant="outline" size="sm" asChild>
-                                                    <Link href={route('orders.show', order.id)}>View</Link>
-                                                </Button>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        window.open(
-                                                            route('orders.receipt', order.id),
-                                                            '_blank',
-                                                            'width=400,height=600'
-                                                        );
-                                                    }}
-                                                >
-                                                    Print
-                                                </Button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
+                                orders.map((order) => {
+                                    const isPaid = order.payment_status === 'paid';
+                                    const isCompleted = order.order_status === 'completed';
+                                    const isBusy = processingId === order.id;
+
+                                    return (
+                                        <tr key={order.id} className="border-t">
+                                            <td className="px-4 py-3 font-mono text-xs">{order.order_number}</td>
+                                            <td className="px-4 py-3 capitalize">{order.order_type}</td>
+                                            <td className="px-4 py-3">{order.user?.name ?? '—'}</td>
+                                            <td className="px-4 py-3">{order.table?.name ?? '—'}</td>
+                                            <td className="px-4 py-3">{order.items.length}</td>
+                                            <td className="px-4 py-3">Rs. {Number(order.total_price).toFixed(2)}</td>
+                                            <td className="px-4 py-3">
+                                                <Badge variant={orderStatusVariant(order.order_status)} className="capitalize">
+                                                    {order.order_status}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <Badge variant={paymentStatusVariant(order.payment_status)} className="capitalize">
+                                                    {order.payment_status}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-3 text-muted-foreground">
+                                                {new Date(order.created_at).toLocaleDateString()}
+                                            </td>
+                                            <td className="px-4 py-3 text-right">
+                                                <div className="flex flex-wrap justify-end gap-2">
+                                                    {!isPaid && (
+                                                        <Button
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            disabled={isBusy}
+                                                            onClick={() => markPaid(order)}
+                                                        >
+                                                            Mark Paid
+                                                        </Button>
+                                                    )}
+                                                    {!isCompleted && order.order_status !== 'cancelled' && (
+                                                        <Button
+                                                            variant="default"
+                                                            size="sm"
+                                                            disabled={isBusy}
+                                                            onClick={() => markCompleted(order)}
+                                                        >
+                                                            Complete
+                                                        </Button>
+                                                    )}
+                                                    <Button variant="outline" size="sm" asChild>
+                                                        <Link href={route('orders.show', order.id)}>View</Link>
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            window.open(
+                                                                route('orders.receipt', order.id),
+                                                                '_blank',
+                                                                'width=400,height=600'
+                                                            );
+                                                        }}
+                                                    >
+                                                        Print
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>

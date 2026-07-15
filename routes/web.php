@@ -5,6 +5,8 @@ use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\ReportController;
+
 
 Route::get('/', function () {
     return Redirect::route('login');
@@ -46,6 +48,10 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::post('/orders/{order}/silent-print', [\App\Http\Controllers\OrderController::class, 'silentPrint'])->name('orders.silent-print');
     // Cart routes
     Route::get('/carts', [\App\Http\Controllers\CartController::class, 'index'])->name('carts.index');
+
+    // Report routes
+    Route::get('/reports/summary', [ReportController::class, 'summary'])->name('reports.summary');
+    Route::get('/reports/summary/print', [ReportController::class, 'summaryPrint'])->name('reports.summary.print');
 });
 
 Route::middleware(['auth', 'user-access:customer'])->group(function () {

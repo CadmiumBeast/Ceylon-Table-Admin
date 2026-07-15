@@ -64,6 +64,12 @@ const mainNavItems: SidebarNavItem[] = [
         url: '/juice-bar',
         icon: ShoppingBag,
         visibleFor: ['admin', 'staff'],
+    },
+    {
+        title: 'Reports',
+        url: '/reports/summary',
+        icon: ClipboardList,
+        visibleFor: ['admin'],
     }
 
 
