@@ -117,7 +117,7 @@ class ShiftController extends Controller
             'hourly' => $this->service->hourlySales($shift),
         };
 
-        return view('reports.shift-print', [
+        return view('reports.summary-print', [
             'shift' => $shift,
             'type'  => $type,
             'data'  => $data,
