@@ -61,6 +61,7 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
 
     Route::get('/reports/shift', [ShiftController::class, 'index'])->name('reports.shift');
     Route::get('/reports/shift/data', [ShiftController::class, 'data'])->name('reports.shift.data');
+    Route::get('/reports/shift/print', [ShiftController::class, 'print'])->name('reports.shift.print');
 });
 
 Route::middleware(['auth', 'user-access:customer'])->group(function () {

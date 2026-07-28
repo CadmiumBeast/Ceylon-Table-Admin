@@ -172,7 +172,7 @@ export default function ShiftReport({ currentShift, shifts }: Props) {
     const printReport = () => {
         if (!activeType || !selectedShiftId) return;
         window.open(
-            `/print/shift-report?shift_id=${selectedShiftId}&type=${activeType}`,
+            `/reports/shift/print?shift_id=${selectedShiftId}&type=${activeType}`,
             '_blank'
         );
     };

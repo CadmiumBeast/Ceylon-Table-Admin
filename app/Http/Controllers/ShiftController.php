@@ -96,4 +96,31 @@ class ShiftController extends Controller
     {
         return response()->json(['shift' => Shift::current()]);
     }
+
+    public function print(Request $request)
+    {
+        $validated = $request->validate([
+            'shift_id' => 'required|exists:shifts,id',
+            'type' => 'required|in:total,category,discount,table,item,order,hourly',
+        ]);
+
+        $shift = Shift::findOrFail($validated['shift_id']);
+        $type = $validated['type'];
+
+        $data = match ($type) {
+            'total' => $this->service->totalSales($shift),
+            'category' => $this->service->categoryWise($shift),
+            'discount' => $this->service->discountWise($shift),
+            'table' => $this->service->tableWise($shift),
+            'item' => $this->service->itemWise($shift),
+            'order' => $this->service->orderWise($shift),
+            'hourly' => $this->service->hourlySales($shift),
+        };
+
+        return view('reports.shift-print', [
+            'shift' => $shift,
+            'type'  => $type,
+            'data'  => $data,
+        ]);
+    }
 }

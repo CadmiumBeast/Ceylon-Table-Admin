@@ -18,7 +18,7 @@
 
         body {
             font-family: 'Courier New', Courier, monospace;
-            font-size: 11px;
+            font-size: 14px;
             font-weight: 600;
             width: 3.125in;
             padding: 6mm 4mm;
@@ -33,7 +33,7 @@
         .bold   { font-weight: 800; }
 
         .shop-name {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 800;
             text-align: center;
             letter-spacing: 1px;
@@ -41,7 +41,7 @@
         }
 
         .shop-address {
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 700;
             text-align: center;
             margin-top: 3px;
@@ -50,7 +50,7 @@
         }
 
         .shop-tel {
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 700;
             text-align: center;
             margin-top: 2px;
@@ -88,7 +88,7 @@
             text-align: left;
             padding: 2px 0;
             border-bottom: 2px dashed #000;
-            font-size: 10px;
+            font-size: 12px;
             color: #000;
         }
 
@@ -118,7 +118,7 @@
         }
 
         .totals .total-line {
-            font-size: 13px;
+            font-size: 15px;
             font-weight: 800;
             border-top: 2px solid #000;
             border-bottom: 2px solid #000;
@@ -128,7 +128,7 @@
 
         .payment-badge {
             text-align: center;
-            font-size: 11px;
+            font-size: 15px;
             font-weight: 800;
             margin-top: 6px;
             letter-spacing: 0.5px;
@@ -136,7 +136,7 @@
 
         .footer {
             margin-top: 10px;
-            font-size: 10px;
+            font-size: 15px;
             font-weight: 700;
             text-align: center;
             color: #000;
@@ -207,7 +207,7 @@
             {{-- Unit price line if qty > 1 --}}
             @if($orderItem->quantity > 1)
             <tr>
-                <td colspan="2" style="font-size:9px; font-weight:700; color:#000; padding-left:4px;">
+                <td colspan="2" style="font-size:12px; font-weight:700; color:#000; padding-left:4px;">
                     @ Rs. {{ number_format($orderItem->price, 2) }} each
                 </td>
                 <td></td>
