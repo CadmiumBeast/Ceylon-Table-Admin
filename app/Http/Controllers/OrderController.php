@@ -18,6 +18,7 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
 use Mike42\Escpos\Printer;
+use App\Events\OrderItemsUpdated;
 
 class OrderController extends Controller
 {
@@ -330,4 +331,62 @@ class OrderController extends Controller
             return redirect()->back()->with('error', 'Printer Error: ' . $e->getMessage());
         }
     }
+
+    public function edit(Order $order)
+{
+    $order->load(['user', 'table', 'items.item']);
+
+    $categories = Category::with(['items' => fn($q) => $q->where('is_active', true)->orderBy('name')])
+        ->orderBy('name')
+        ->get();
+
+    return Inertia::render('orders/edit', [
+        'order'      => $order,
+        'categories' => $categories,
+    ]);
+}
+
+public function addItems(Request $request, Order $order)
+{
+    $validated = $request->validate([
+        'items'             => 'required|array|min:1',
+        'items.*.id'        => 'required|exists:items,id',
+        'items.*.quantity'  => 'required|integer|min:1',
+    ]);
+
+    foreach ($validated['items'] as $entry) {
+        $item = Item::findOrFail($entry['id']);
+
+        // Merge into an existing pending line for the same item, otherwise create a new one
+        $existing = $order->items()
+            ->where('item_id', $item->id)
+            ->where('orderItem_status', 'pending')
+            ->first();
+
+        if ($existing) {
+            $existing->increment('quantity', $entry['quantity']);
+        } else {
+            $order->items()->create([
+                'item_id'          => $item->id,
+                'quantity'         => $entry['quantity'],
+                'price'            => $item->price, // snapshot current price
+                'orderItem_status' => 'pending',
+            ]);
+        }
+    }
+
+    // Recalculate totals from the fresh set of items
+    $order->load('items');
+    $subtotal = $order->items->sum(fn($oi) => $oi->price * $oi->quantity);
+
+    $order->update([
+        'subtotal'    => $subtotal,
+        'total_price' => max(0, $subtotal - $order->discount),
+    ]);
+
+    $order->load(['user', 'table', 'items.item']);
+    broadcast(new OrderItemsUpdated($order))->toOthers();
+
+    return redirect()->route('orders.show', $order)->with('success', 'Items added to order.');
+}
 }

@@ -99,7 +99,7 @@
     <div class="report-title">Sales Summary</div>
     <div class="range">
         {{ $dateFrom->format('d M Y, h:i A') }}
-        {{ $dateFrom->toDateString() !== $dateTo->toDateString() || $dateFrom->format('H:i') !== '00:00' ? '–' : '' }}
+        {{ $dateFrom->toDateString() !== $dateTo->toDateString() || $dateFrom->format('H:i') !== '00:00' ? '-' : '' }}
         {{ $dateTo->format('d M Y, h:i A') }}
     </div>
     <div class="range">Printed: {{ now()->format('d M Y H:i') }}</div>

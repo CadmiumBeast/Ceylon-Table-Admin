@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Redirect;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ShiftController;
 
 
 Route::get('/', function () {
@@ -46,12 +47,20 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::patch('/orders/{order}/items/{orderItem}/status', [\App\Http\Controllers\OrderController::class, 'updateItemStatus'])->name('orders.update-item-status');
     Route::get('/orders/{order}/receipt', [\App\Http\Controllers\OrderController::class, 'receipt'])->name('orders.receipt');
     Route::post('/orders/{order}/silent-print', [\App\Http\Controllers\OrderController::class, 'silentPrint'])->name('orders.silent-print');
+    Route::get('orders/{order}/edit', [\App\Http\Controllers\OrderController::class, 'edit'])->name('orders.edit');
+    Route::post('orders/{order}/add-items', [\App\Http\Controllers\OrderController::class, 'addItems'])->name('orders.add-items');
     // Cart routes
     Route::get('/carts', [\App\Http\Controllers\CartController::class, 'index'])->name('carts.index');
 
     // Report routes
     Route::get('/reports/summary', [ReportController::class, 'summary'])->name('reports.summary');
     Route::get('/reports/summary/print', [ReportController::class, 'summaryPrint'])->name('reports.summary.print');
+    Route::post('/shifts/open', [ShiftController::class, 'open'])->name('shifts.open');
+    Route::post('/shifts/close', [ShiftController::class, 'close'])->name('shifts.close');
+    Route::get('/shifts/current', [ShiftController::class, 'current'])->name('shifts.current');
+
+    Route::get('/reports/shift', [ShiftController::class, 'index'])->name('reports.shift');
+    Route::get('/reports/shift/data', [ShiftController::class, 'data'])->name('reports.shift.data');
 });
 
 Route::middleware(['auth', 'user-access:customer'])->group(function () {

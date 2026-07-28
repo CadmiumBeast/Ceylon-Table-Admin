@@ -175,6 +175,11 @@ export default function OrderShow({ order }: Props) {
                         >
                             Print
                         </Button>
+                        {!['completed', 'cancelled'].includes(order.order_status) && (
+                            <Button variant="outline" asChild>
+                                <Link href={route('orders.edit', order.id)}>Add Items</Link>
+                            </Button>
+                        )}
                         <Button variant="outline" asChild>
                             <Link href={route('orders.index')}>Back to Orders</Link>
                         </Button>

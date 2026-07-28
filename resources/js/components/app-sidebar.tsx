@@ -67,7 +67,7 @@ const mainNavItems: SidebarNavItem[] = [
     },
     {
         title: 'Reports',
-        url: '/reports/summary',
+        url: '/reports/shift',
         icon: ClipboardList,
         visibleFor: ['admin'],
     }
