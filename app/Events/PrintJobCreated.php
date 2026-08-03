@@ -46,6 +46,8 @@ class PrintJobCreated
             'printer_ip'   => $this->printJob->printer_ip,
             'printer_port' => $this->printJob->printer_port,
             'payload'      => $this->printJob->payload,
+            'interface_type' => $this->printJob->interface_type,
+            'printer_name' => $this->printJob->printer_name,
         ];
     }
 }

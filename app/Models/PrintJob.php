@@ -16,6 +16,8 @@ class PrintJob extends Model
         'attempts',
         'last_error',
         'printed_at',
+        'interface_type',
+        'printer_name',
     ];
 
     protected $casts = [

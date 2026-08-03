@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ShiftController;
+use App\Http\Controllers\SalesReportController;
 
 
 Route::get('/', function () {
@@ -52,16 +53,9 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
     // Cart routes
     Route::get('/carts', [\App\Http\Controllers\CartController::class, 'index'])->name('carts.index');
 
-    // Report routes
-    Route::get('/reports/summary', [ReportController::class, 'summary'])->name('reports.summary');
-    Route::get('/reports/summary/print', [ReportController::class, 'summaryPrint'])->name('reports.summary.print');
-    Route::post('/shifts/open', [ShiftController::class, 'open'])->name('shifts.open');
-    Route::post('/shifts/close', [ShiftController::class, 'close'])->name('shifts.close');
-    Route::get('/shifts/current', [ShiftController::class, 'current'])->name('shifts.current');
-
-    Route::get('/reports/shift', [ShiftController::class, 'index'])->name('reports.shift');
-    Route::get('/reports/shift/data', [ShiftController::class, 'data'])->name('reports.shift.data');
-    Route::get('/reports/shift/print', [ShiftController::class, 'print'])->name('reports.shift.print');
+    Route::get('/reports/sales', [SalesReportController::class, 'index'])->name('reports.sales');
+    Route::get('/reports/sales/data', [SalesReportController::class, 'data'])->name('reports.sales.data');
+    Route::post('/reports/sales/print', [SalesReportController::class, 'print'])->name('reports.sales.print');
 });
 
 Route::middleware(['auth', 'user-access:customer'])->group(function () {
