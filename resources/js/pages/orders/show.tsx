@@ -4,6 +4,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { useEchoPublic } from '@laravel/echo-react';
+import { useState } from 'react';
 
 interface Item {
     id: number;
@@ -143,11 +144,23 @@ function ItemStatusForm({ orderId, orderItem }: { orderId: number; orderItem: Or
 }
 
 export default function OrderShow({ order }: Props) {
+    const [printing, setPrinting] = useState(false);
+
     useEchoPublic<{ order_id: number }>('orders', ['.order.status.updated', '.order.item.status.updated'], (data) => {
         if (data.order_id === order.id) {
             router.reload({ only: ['order'] });
         }
     }, [order.id]);
+
+    const handlePrint = () => {
+        setPrinting(true);
+
+        router.post(route('orders.silent-print', order.id), {}, {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => setPrinting(false),
+        });
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs(order.order_number)}>
@@ -165,15 +178,10 @@ export default function OrderShow({ order }: Props) {
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                                // Send a silent request to the backend to print
-                                router.post(route('orders.silent-print', order.id), {}, {
-                                    preserveScroll: true,
-                                    preserveState: true,
-                                });
-                            }}
+                            onClick={handlePrint}
+                            disabled={printing}
                         >
-                            Print
+                            {printing ? 'Printing…' : 'Print'}
                         </Button>
                         {!['completed', 'cancelled'].includes(order.order_status) && (
                             <Button variant="outline" asChild>

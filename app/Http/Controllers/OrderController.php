@@ -267,8 +267,8 @@ class OrderController extends Controller
                         'name'     => $orderItem->item?->name ?? 'Unknown Item',
                         'quantity' => $orderItem->quantity,
                         'price'    => $orderItem->price,
-                    ]),
-                    'total_price'  => number_format($order->total_price, 2),
+                    ])->values()->all(),
+                    'total_price'  => (float) $order->total_price,
                 ],
                 'status' => 'pending',
             ]);

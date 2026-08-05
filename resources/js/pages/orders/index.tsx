@@ -57,6 +57,7 @@ const paymentStatusVariant = (status: string): 'secondary' | 'destructive' | 'ou
 
 export default function OrdersIndex({ orders }: Props) {
     const [processingId, setProcessingId] = useState<number | null>(null);
+    const [printingId, setPrintingId] = useState<number | null>(null);
 
     useEchoPublic('orders', ['.order.placed', '.order.status.updated'], () => {
         router.reload({ only: ['orders'] });
@@ -103,6 +104,20 @@ export default function OrdersIndex({ orders }: Props) {
                 preserveScroll: true,
                 preserveState: true,
                 onFinish: () => setProcessingId(null),
+            }
+        );
+    };
+
+    const silentPrint = (order: Order) => {
+        setPrintingId(order.id);
+
+        router.post(
+            route('orders.silent-print', order.id),
+            {},
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onFinish: () => setPrintingId(null),
             }
         );
     };
@@ -238,15 +253,10 @@ export default function OrdersIndex({ orders }: Props) {
                                                     <Button
                                                         variant="outline"
                                                         size="sm"
-                                                        onClick={() => {
-                                                            window.open(
-                                                                route('orders.receipt', order.id),
-                                                                '_blank',
-                                                                'width=400,height=600'
-                                                            );
-                                                        }}
+                                                        onClick={() => silentPrint(order)}
+                                                        disabled={isBusy || printingId === order.id}
                                                     >
-                                                        Print
+                                                        {printingId === order.id ? 'Printing…' : 'Print'}
                                                     </Button>
                                                 </div>
                                             </td>
