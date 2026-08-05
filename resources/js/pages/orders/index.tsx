@@ -1,5 +1,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
@@ -56,11 +62,14 @@ export default function OrdersIndex({ orders }: Props) {
         router.reload({ only: ['orders'] });
     });
 
-    const markPaid = (order: Order) => {
+    const markPaid = (order: Order, method: string) => {
         setProcessingId(order.id);
         router.patch(
             route('orders.update-payment-status', order.id),
-            { payment_status: 'paid' },
+            {
+                payment_status: 'paid',
+                payment_method: method
+            },
             {
                 preserveScroll: true,
                 preserveState: true,
@@ -81,6 +90,24 @@ export default function OrdersIndex({ orders }: Props) {
             }
         );
     };
+
+    // Added cancel function with a confirmation prompt
+    const cancelOrder = (order: Order) => {
+        if (!confirm('Are you sure you want to cancel this order?')) return;
+
+        setProcessingId(order.id);
+        router.patch(
+            route('orders.update-status', order.id),
+            { order_status: 'cancelled' },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onFinish: () => setProcessingId(null),
+            }
+        );
+    };
+
+    const paymentMethods = ['Cash', 'Visa', 'Master', 'Uber', 'Pickme'];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -124,6 +151,7 @@ export default function OrdersIndex({ orders }: Props) {
                                 orders.map((order) => {
                                     const isPaid = order.payment_status === 'paid';
                                     const isCompleted = order.order_status === 'completed';
+                                    const isCancelled = order.order_status === 'cancelled';
                                     const isBusy = processingId === order.id;
 
                                     return (
@@ -143,23 +171,44 @@ export default function OrdersIndex({ orders }: Props) {
                                                 <Badge variant={paymentStatusVariant(order.payment_status)} className="capitalize">
                                                     {order.payment_status}
                                                 </Badge>
+                                                {isPaid && order.payment_method && (
+                                                    <span className="block text-xs text-muted-foreground mt-1">
+                                                        ({order.payment_method})
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-muted-foreground">
                                                 {new Date(order.created_at).toLocaleDateString()}
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 <div className="flex flex-wrap justify-end gap-2">
-                                                    {!isPaid && (
-                                                        <Button
-                                                            variant="secondary"
-                                                            size="sm"
-                                                            disabled={isBusy}
-                                                            onClick={() => markPaid(order)}
-                                                        >
-                                                            Mark Paid
-                                                        </Button>
+
+                                                    {!isPaid && !isCancelled && (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button
+                                                                    variant="secondary"
+                                                                    size="sm"
+                                                                    disabled={isBusy}
+                                                                >
+                                                                    Mark Paid
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                {paymentMethods.map((method) => (
+                                                                    <DropdownMenuItem
+                                                                        key={method}
+                                                                        onClick={() => markPaid(order, method)}
+                                                                        className="cursor-pointer"
+                                                                    >
+                                                                        {method}
+                                                                    </DropdownMenuItem>
+                                                                ))}
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
                                                     )}
-                                                    {!isCompleted && order.order_status !== 'cancelled' && (
+
+                                                    {!isCompleted && !isCancelled && (
                                                         <Button
                                                             variant="default"
                                                             size="sm"
@@ -169,9 +218,23 @@ export default function OrdersIndex({ orders }: Props) {
                                                             Complete
                                                         </Button>
                                                     )}
+
+                                                    {/* Added Cancel Button */}
+                                                    {!isCompleted && !isCancelled && (
+                                                        <Button
+                                                            variant="destructive"
+                                                            size="sm"
+                                                            disabled={isBusy}
+                                                            onClick={() => cancelOrder(order)}
+                                                        >
+                                                            Cancel
+                                                        </Button>
+                                                    )}
+
                                                     <Button variant="outline" size="sm" asChild>
                                                         <Link href={route('orders.show', order.id)}>View</Link>
                                                     </Button>
+
                                                     <Button
                                                         variant="outline"
                                                         size="sm"

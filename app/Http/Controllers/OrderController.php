@@ -161,9 +161,13 @@ class OrderController extends Controller
     {
         $request->validate([
             'payment_status' => 'required|in:pending,paid,failed',
+            'payment_method' => 'nullable|string|in:Cash,Visa,Master,Uber,Pickme', // Added validation
         ]);
 
-        $order->update(['payment_status' => $request->payment_status]);
+        $order->update([
+            'payment_status' => $request->payment_status,
+            'payment_method' => $request->payment_method ?? $order->payment_method, // Save method if provided
+        ]);
 
         broadcast(new OrderStatusUpdated($order))->toOthers();
 
