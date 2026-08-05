@@ -252,23 +252,31 @@ class OrderController extends Controller
             $counter = Counter::forRole('Front Counter');
 
             $printJob = PrintJob::create([
-                'order_id'        => $order->id,
-                'counter_id'      => $counter->id,
-                'interface_type'  => $counter->interface_type,
-                'printer_name'    => $counter->printer_name,
-                'printer_ip'      => $counter->printer_ip,
-                'printer_port'    => $counter->printer_port,
-                'payload'         => [
+                'order_id'       => $order->id,
+                'counter_id'     => $counter->id,
+                'interface_type' => $counter->interface_type,
+                'printer_name'   => $counter->printer_name,
+                'printer_ip'     => $counter->printer_ip,
+                'printer_port'   => $counter->printer_port,
+                'payload'        => [
                     'type'         => 'bill',
                     'order_number' => $order->order_number,
                     'order_type'   => str_replace('_', ' ', $order->order_type),
                     'table_name'   => $order->table?->name,
+                    // Add dynamic date and time based on the order's creation
+                    'date'         => $order->created_at->format('d-m-Y'),
+                    'time'         => $order->created_at->format('h:i A'),
+                    'counter'      => $counter->name ?? '01',
                     'items'        => $order->items->map(fn ($orderItem) => [
                         'name'     => $orderItem->item?->name ?? 'Unknown Item',
                         'quantity' => $orderItem->quantity,
-                        'price'    => $orderItem->price,
+                        // Format price to 2 decimal places string
+                        'price'    => number_format((float) $orderItem->price, 2, '.', ''),
                     ])->values()->all(),
-                    'total_price'  => (float) $order->total_price,
+                    // Ensure totals are formatted properly for the printer
+                    'sub_total'    => number_format((float) $order->total_price, 2, '.', ''),
+                    'total_price'  => number_format((float) $order->total_price, 2, '.', ''),
+                    'payment_method' => $order->payment_method ?? 'CASH', // Add this if available on your model
                 ],
                 'status' => 'pending',
             ]);
