@@ -16,15 +16,30 @@ class DailySalesReportService
     public function dayEnd(Carbon $date): array
     {
         $orders = $this->baseQuery($date)->get();
+        $paymentMethods = $orders->groupBy(fn ($order) => strtolower((string) $order->payment_method));
+        $methodTotal = fn (string $method) => round(
+            $paymentMethods->get($method, collect())->sum('total_price'),
+            2
+        );
 
         return [
             'total_orders'        => $orders->count(),
             'gross_sales'         => round($orders->sum('subtotal'), 2),
             'total_discount'      => round($orders->sum('discount'), 2),
             'net_sales'           => round($orders->sum('total_price'), 2),
-            'cash'                => round($orders->where('payment_method', 'cash')->sum('total_price'), 2),
-            'card'                => round($orders->where('payment_method', 'card')->sum('total_price'), 2),
-            'other'               => round($orders->whereNotIn('payment_method', ['cash', 'card'])->sum('total_price'), 2),
+            'cash'                => $methodTotal('cash'),
+            'Visa'                => $methodTotal('visa'),
+            'Master'              => $methodTotal('master'),
+            'Uber'                => $methodTotal('uber'),
+            'Pickme'              => $methodTotal('pickme'),
+            'other'               => round(
+                $orders->reject(fn ($order) => in_array(
+                    strtolower((string) $order->payment_method),
+                    ['cash', 'visa', 'master', 'uber', 'pickme'],
+                    true
+                ))->sum('total_price'),
+                2
+            ),
             'average_order_value' => $orders->count()
                 ? round($orders->sum('total_price') / $orders->count(), 2)
                 : 0,
