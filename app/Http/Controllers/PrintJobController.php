@@ -13,10 +13,12 @@ class PrintJobController extends Controller
             ->orderBy('created_at')
             ->get()
             ->map(fn (PrintJob $job) => [
-                'print_job_id' => $job->id,
-                'printer_ip'   => $job->printer_ip,
-                'printer_port' => $job->printer_port,
-                'payload'      => $job->payload,
+                'print_job_id'   => $job->id,
+                'interface_type' => $job->interface_type, // Add this line
+                'printer_name'   => $job->printer_name,   // Add this line
+                'printer_ip'     => $job->printer_ip,
+                'printer_port'   => $job->printer_port,
+                'payload'        => $job->payload,
             ]);
 
         return response()->json($jobs);
