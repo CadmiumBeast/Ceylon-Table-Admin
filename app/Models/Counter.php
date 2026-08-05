@@ -23,4 +23,9 @@ class Counter extends Model
         return $this->hasMany(PrintJob::class);
     }
 
+    public static function forRole(string $name): self
+    {
+        return static::where('name', $name)->firstOrFail();
+    }
+
 }

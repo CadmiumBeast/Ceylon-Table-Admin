@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Events\OrderItemStatusUpdated;
 use App\Events\OrderPlaced;
 use App\Events\OrderStatusUpdated;
+use App\Events\PrintJobCreated;
 use App\Models\Category;
+use App\Models\Counter;
 use App\Models\Item;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderTime;
+use App\Models\PrintJob;
 use App\Models\Table;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -237,156 +240,98 @@ class OrderController extends Controller
 
 
 
-    public function directPrintUSB($orderId)
-    {
-        $order = Order::with('items.item')->findOrFail($orderId);
-
-        try {
-            // Connect to the locally shared USB printer
-            // Replace "ReceiptPrinter" with your exact share name
-            $connector = new WindowsPrintConnector("ReceiptPrinter");
-            $printer = new Printer($connector);
-
-            $printer->setJustification(Printer::JUSTIFY_CENTER);
-            $printer->text("Ceylon Table\n");
-            $printer->text("Order: " . $order->order_number . "\n\n");
-
-            $printer->setJustification(Printer::JUSTIFY_LEFT);
-            foreach($order->items as $item) {
-                $printer->text($item->quantity . "x " . $item->item->name . " - Rs." . $item->price . "\n");
-            }
-
-            $printer->feed(2);
-            $printer->cut();
-            $printer->close();
-
-            return response()->json(['status' => 'printed']);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
-    }
-
     public function silentPrint(Order $order)
     {
         $order->load(['user', 'table', 'items.item']);
 
         try {
-            // "ReceiptPrinter" MUST match the share name you set in Step 1
-            $connector = new WindowsPrintConnector("ReceiptPrinter");
-            $printer = new Printer($connector);
+            $counter = Counter::forRole('Front Counter');
 
-            // --- HEADER ---
-            $printer->setJustification(Printer::JUSTIFY_CENTER);
-            $printer->setTextSize(2, 2);
-            $printer->text("Ceylon Table\n");
-            $printer->setTextSize(1, 1);
-            $printer->text("83, St Lucias Street, Kotahena\n");
-            $printer->text("Tel: 011 234 7777\n");
-            $printer->feed();
+            $printJob = PrintJob::create([
+                'order_id'        => $order->id,
+                'counter_id'      => $counter->id,
+                'interface_type'  => $counter->interface_type,
+                'printer_name'    => $counter->printer_name,
+                'printer_ip'      => $counter->printer_ip,
+                'printer_port'    => $counter->printer_port,
+                'payload'         => [
+                    'type'         => 'bill',
+                    'order_number' => $order->order_number,
+                    'order_type'   => str_replace('_', ' ', $order->order_type),
+                    'table_name'   => $order->table?->name,
+                    'items'        => $order->items->map(fn ($orderItem) => [
+                        'name'     => $orderItem->item?->name ?? 'Unknown Item',
+                        'quantity' => $orderItem->quantity,
+                        'price'    => $orderItem->price,
+                    ]),
+                    'total_price'  => number_format($order->total_price, 2),
+                ],
+                'status' => 'pending',
+            ]);
 
-            $printer->setJustification(Printer::JUSTIFY_LEFT);
-            $printer->text("Order: " . $order->order_number . "\n");
-            $printer->text("Date: " . $order->created_at->format('d M Y, H:i') . "\n");
-            $printer->text("Type: " . str_replace('_', ' ', $order->order_type) . "\n");
-            $printer->text(str_repeat("-", 48) . "\n");
-
-            // --- ITEMS ---
-            foreach($order->items as $orderItem) {
-                $itemName = $orderItem->item->name ?? 'Unknown Item';
-                $qty = $orderItem->quantity;
-                $price = number_format($orderItem->price * $qty, 2);
-
-                // Format line to look like: "2x Kottu           Rs. 1200.00"
-                $printer->text($qty . "x " . $itemName . "\n");
-                $printer->setJustification(Printer::JUSTIFY_RIGHT);
-                $printer->text("Rs. " . $price . "\n");
-                $printer->setJustification(Printer::JUSTIFY_LEFT);
-            }
-
-            $printer->text(str_repeat("-", 48) . "\n");
-
-            // --- TOTALS ---
-            $printer->setJustification(Printer::JUSTIFY_RIGHT);
-            $printer->text("Subtotal: Rs. " . number_format($order->subtotal, 2) . "\n");
-            if ($order->discount > 0) {
-                $printer->text("Discount: Rs. " . number_format($order->discount, 2) . "\n");
-            }
-            $printer->setTextSize(1, 2);
-            $printer->text("TOTAL: Rs. " . number_format($order->total_price, 2) . "\n");
-            $printer->setTextSize(1, 1);
-            $printer->feed();
-
-            // --- FOOTER ---
-            $printer->setJustification(Printer::JUSTIFY_CENTER);
-            $printer->text("Thank you for dining with us!\n");
-
-            // Cut paper and close connection
-            $printer->feed(3);
-            $printer->cut();
-            $printer->close();
+            broadcast(new PrintJobCreated($printJob));
 
             return redirect()->back()->with('success', 'Receipt sent to printer.');
-
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Printer Error: ' . $e->getMessage());
         }
     }
 
     public function edit(Order $order)
-{
-    $order->load(['user', 'table', 'items.item']);
+    {
+        $order->load(['user', 'table', 'items.item']);
 
-    $categories = Category::with(['items' => fn($q) => $q->where('is_active', true)->orderBy('name')])
-        ->orderBy('name')
-        ->get();
+        $categories = Category::with(['items' => fn($q) => $q->where('is_active', true)->orderBy('name')])
+            ->orderBy('name')
+            ->get();
 
-    return Inertia::render('orders/edit', [
-        'order'      => $order,
-        'categories' => $categories,
-    ]);
-}
-
-public function addItems(Request $request, Order $order)
-{
-    $validated = $request->validate([
-        'items'             => 'required|array|min:1',
-        'items.*.id'        => 'required|exists:items,id',
-        'items.*.quantity'  => 'required|integer|min:1',
-    ]);
-
-    foreach ($validated['items'] as $entry) {
-        $item = Item::findOrFail($entry['id']);
-
-        // Merge into an existing pending line for the same item, otherwise create a new one
-        $existing = $order->items()
-            ->where('item_id', $item->id)
-            ->where('orderItem_status', 'pending')
-            ->first();
-
-        if ($existing) {
-            $existing->increment('quantity', $entry['quantity']);
-        } else {
-            $order->items()->create([
-                'item_id'          => $item->id,
-                'quantity'         => $entry['quantity'],
-                'price'            => $item->price, // snapshot current price
-                'orderItem_status' => 'pending',
-            ]);
-        }
+        return Inertia::render('orders/edit', [
+            'order'      => $order,
+            'categories' => $categories,
+        ]);
     }
 
-    // Recalculate totals from the fresh set of items
-    $order->load('items');
-    $subtotal = $order->items->sum(fn($oi) => $oi->price * $oi->quantity);
+    public function addItems(Request $request, Order $order)
+    {
+        $validated = $request->validate([
+            'items'             => 'required|array|min:1',
+            'items.*.id'        => 'required|exists:items,id',
+            'items.*.quantity'  => 'required|integer|min:1',
+        ]);
 
-    $order->update([
-        'subtotal'    => $subtotal,
-        'total_price' => max(0, $subtotal - $order->discount),
-    ]);
+        foreach ($validated['items'] as $entry) {
+            $item = Item::findOrFail($entry['id']);
 
-    $order->load(['user', 'table', 'items.item']);
-    broadcast(new OrderItemsUpdated($order))->toOthers();
+            // Merge into an existing pending line for the same item, otherwise create a new one
+            $existing = $order->items()
+                ->where('item_id', $item->id)
+                ->where('orderItem_status', 'pending')
+                ->first();
 
-    return redirect()->route('orders.show', $order)->with('success', 'Items added to order.');
-}
+            if ($existing) {
+                $existing->increment('quantity', $entry['quantity']);
+            } else {
+                $order->items()->create([
+                    'item_id'          => $item->id,
+                    'quantity'         => $entry['quantity'],
+                    'price'            => $item->price, // snapshot current price
+                    'orderItem_status' => 'pending',
+                ]);
+            }
+        }
+
+        // Recalculate totals from the fresh set of items
+        $order->load('items');
+        $subtotal = $order->items->sum(fn($oi) => $oi->price * $oi->quantity);
+
+        $order->update([
+            'subtotal'    => $subtotal,
+            'total_price' => max(0, $subtotal - $order->discount),
+        ]);
+
+        $order->load(['user', 'table', 'items.item']);
+        broadcast(new OrderItemsUpdated($order))->toOthers();
+
+        return redirect()->route('orders.show', $order)->with('success', 'Items added to order.');
+    }
 }
