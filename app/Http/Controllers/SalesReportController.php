@@ -129,23 +129,28 @@ class SalesReportController extends Controller
             str_pad($label, 20) . str_pad($value, 12, ' ', STR_PAD_LEFT) . "\n"
         );
 
-        $line('Total Orders', $data['total_orders']);
-        $line('Gross Sales', number_format($data['gross_sales'], 2));
-        if ($data['total_discount'] > 0) {
+        $line('Total Orders', $data['total_orders'] ?? 0);
+        $line('Gross Sales', number_format($data['gross_sales'] ?? 0, 2));
+
+        if (($data['total_discount'] ?? 0) > 0) {
             $line('Discounts', number_format($data['total_discount'], 2));
         }
-        $line('Cash', number_format($data['cash'], 2));
-        $line('Visa', number_format($data['Visa'], 2));
-        $line('Master', number_format($data['Master'], 2));
-        $line('Uber', number_format($data['Uber'], 2));
-        $line('Pickme', number_format($data['Pickme'], 2));
-        if ($data['other'] > 0) {
+
+        // Change $data['cash'] to $data['Cash'] here!
+        $line('Cash', number_format($data['Cash'] ?? 0, 2));
+        $line('Visa', number_format($data['Visa'] ?? 0, 2));
+        $line('Master', number_format($data['Master'] ?? 0, 2));
+        $line('Uber', number_format($data['Uber'] ?? 0, 2));
+        $line('Pickme', number_format($data['Pickme'] ?? 0, 2));
+
+        if (($data['other'] ?? 0) > 0) {
             $line('Other', number_format($data['other'], 2));
         }
-        $line('Avg Order Value', number_format($data['average_order_value'], 2));
+
+        $line('Avg Order Value', number_format($data['average_order_value'] ?? 0, 2));
 
         $printer->setTextSize(1, 2);
-        $line('NET SALES', number_format($data['net_sales'], 2));
+        $line('NET SALES', number_format($data['net_sales'] ?? 0, 2));
         $printer->setTextSize(1, 1);
     }
 

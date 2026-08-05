@@ -309,6 +309,20 @@ class ApiController extends Controller
         try{
             $cart_id = $request->get('cart_id');
             $payment_method = $request->get('payment_method');
+            if ($payment_method == 'Cash on delivery') {
+                $payment_method = 'Cash';
+            }
+            if ($payment_method == 'Card') {
+                $payment_method = 'Visa'; // Defaulting to Visa for now; adjust as needed
+            }
+
+            if ($payment_method == 'Bank transfer') {
+                $payment_method = 'Bank transfer';
+            }
+
+            if ($payment_method == 'Cash on pick-up') {
+                $payment_method = 'Cash';
+            }
             $discount = $request->get('discount', 0);
 
             $total_price = 0;
@@ -619,10 +633,22 @@ class ApiController extends Controller
                 }
             }
 
+            $paymentMethod = $request->get('payment_method', $order->payment_method);
+
+            if($paymentMethod === 'Cash on delivery') {
+                $paymentMethod = 'Cash';
+            } elseif ($paymentMethod === 'Card') {
+                $paymentMethod = 'Visa'; // Defaulting to Visa for now; adjust as needed
+            } elseif ($paymentMethod === 'Bank transfer') {
+                $paymentMethod = 'Bank transfer';
+            } elseif ($paymentMethod === 'Cash on pick-up') {
+                $paymentMethod = 'Cash';
+            }
+
             // Close the order
             $order->update([
                 'order_status'   => 'completed',
-                'payment_method' => $request->get('payment_method', $order->payment_method),
+                'payment_method' => $paymentMethod,
                 'payment_status' => 'paid',
                 'customer_id'    => $customerId, // null if skipped
             ]);
