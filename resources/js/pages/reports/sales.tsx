@@ -12,7 +12,10 @@ interface DayEndData {
     total_discount: number;
     net_sales: number;
     cash: number;
-    card: number;
+    Visa: number;
+    Master: number;
+    Uber: number;
+    Pickme: number;
     other: number;
     average_order_value: number;
 }
@@ -141,7 +144,10 @@ function DayEndView({ data }: { data: DayEndData }) {
         { label: 'Discounts', value: money(data.total_discount) },
         { label: 'Net Sales', value: money(data.net_sales) },
         { label: 'Cash', value: money(data.cash) },
-        { label: 'Card', value: money(data.card) },
+        { label: 'Visa', value: money(data.Visa) },
+        { label: 'Master', value: money(data.Master) },
+        { label: 'Uber', value: money(data.Uber) },
+        { label: 'Pickme', value: money(data.Pickme) },
         { label: 'Other', value: money(data.other) },
         { label: 'Avg Order Value', value: money(data.average_order_value) },
     ];

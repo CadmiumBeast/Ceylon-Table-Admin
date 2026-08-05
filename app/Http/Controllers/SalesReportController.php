@@ -135,7 +135,10 @@ class SalesReportController extends Controller
             $line('Discounts', number_format($data['total_discount'], 2));
         }
         $line('Cash', number_format($data['cash'], 2));
-        $line('Card', number_format($data['card'], 2));
+        $line('Visa', number_format($data['Visa'], 2));
+        $line('Master', number_format($data['Master'], 2));
+        $line('Uber', number_format($data['Uber'], 2));
+        $line('Pickme', number_format($data['Pickme'], 2));
         if ($data['other'] > 0) {
             $line('Other', number_format($data['other'], 2));
         }
