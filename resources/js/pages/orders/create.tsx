@@ -19,6 +19,11 @@ interface Category {
     items: Item[];
 }
 
+interface SearchItem extends Item {
+    categoryId: number;
+    categoryName: string;
+}
+
 interface TableRow {
     id: number;
     name: string;
@@ -96,11 +101,31 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
         : [];
 
     const selectedCat = categories.find((c) => c.id === selectedCatId) ?? null;
-    const visibleItems = selectedCat
-        ? selectedCat.items.filter((item) =>
-              item.name.toLowerCase().includes(itemSearch.trim().toLowerCase()),
+    const allItems: SearchItem[] = categories.flatMap((category) =>
+        category.items.map((item) => ({
+            ...item,
+            categoryId: category.id,
+            categoryName: category.name,
+        })),
+    );
+
+    const searchQuery = itemSearch.trim().toLowerCase();
+    const searchResults = searchQuery
+        ? allItems.filter((item) =>
+              item.name.toLowerCase().includes(searchQuery) ||
+              item.categoryName.toLowerCase().includes(searchQuery),
           )
         : [];
+
+    const visibleItems = searchQuery
+        ? searchResults
+        : selectedCat
+            ? selectedCat.items.map((item) => ({
+                  ...item,
+                  categoryId: selectedCat.id,
+                  categoryName: selectedCat.name,
+              }))
+            : [];
 
     const addCustomItem = () => {
         const name = customItemName.trim();
@@ -351,10 +376,51 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                 />
                             </div>
 
-                            {selectedCat ? (
+                                {searchQuery ? (
+                                    visibleItems.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground py-4">
+                                            No matching items found.
+                                        </p>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                                            {visibleItems.map((item) => {
+                                                const inCart = cart.find((e) => e.item.id === item.id);
+                                                return (
+                                                    <button
+                                                        key={item.id}
+                                                        onClick={() => addToCart(item)}
+                                                        className="rounded-lg border bg-background p-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
+                                                    >
+                                                        {item.image_url && (
+                                                            <img
+                                                                src={item.image_url}
+                                                                alt={item.name}
+                                                                className="mb-2 h-20 w-full rounded object-cover"
+                                                            />
+                                                        )}
+                                                        <p className="text-sm font-medium leading-tight">
+                                                            {item.name}
+                                                        </p>
+                                                        <p className="mt-1 text-xs text-muted-foreground">
+                                                            {item.categoryName}
+                                                        </p>
+                                                        <p className="mt-1 text-xs text-muted-foreground">
+                                                            Rs. {Number(item.price).toFixed(2)}
+                                                        </p>
+                                                        {inCart && (
+                                                            <Badge className="mt-2 text-xs" variant="secondary">
+                                                                {inCart.quantity} selected
+                                                            </Badge>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )
+                                ) : selectedCat ? (
                                 visibleItems.length === 0 ? (
                                     <p className="text-sm text-muted-foreground py-4">
-                                        {itemSearch.trim() ? 'No matching items found.' : 'No items in this category.'}
+                                        No items in this category.
                                     </p>
                                 ) : (
                                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
@@ -375,6 +441,9 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                                     )}
                                                     <p className="text-sm font-medium leading-tight">
                                                         {item.name}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-muted-foreground">
+                                                        {selectedCat.name}
                                                     </p>
                                                     <p className="mt-1 text-xs text-muted-foreground">
                                                         Rs. {Number(item.price).toFixed(2)}
