@@ -146,6 +146,8 @@ class SalesReportController extends Controller
             $line('Other', number_format($data['other'], 2));
         }
 
+        $line('Cancelled Orders', $data['cancelled_orders'] ?? 0);
+
         $line('Avg Order Value', number_format($data['average_order_value'] ?? 0, 2));
 
         $printer->setTextSize(1, 2);

@@ -83,7 +83,9 @@ class DailySalesReportService
             ->with('items.item')
             ->get()
             ->flatMap(fn ($order) => $order->items)
-            ->groupBy(fn ($orderItem) => $orderItem->item?->name ?? 'Unknown Item')
+            ->groupBy(fn ($orderItem) => $orderItem->is_custom_item
+                ? ($orderItem->item_name ?? 'Custom Item')
+                : ($orderItem->item?->name ?? $orderItem->item_name ?? 'Unknown Item'))
             ->map(fn ($items, $name) => [
                 'item_name' => $name,
                 'qty_sold'  => $items->sum('quantity'),
