@@ -43,6 +43,7 @@ class DailySalesReportService
             'average_order_value' => $orders->count()
                 ? round($orders->sum('total_price') / $orders->count(), 2)
                 : 0,
+            'cancelled_orders'      => $orders->where('order_status', 'cancelled')->count(),
         ];
     }
 

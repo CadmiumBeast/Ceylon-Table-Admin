@@ -32,7 +32,7 @@ export interface User {
     id: number;
     name: string;
     email: string;
-    type: 'customer' | 'admin' | 'chef' | 'staff' | 'delivery';
+    type: 'customer' | 'admin' | 'manager' | 'chef' | 'staff' | 'delivery';
     customer?: {
         first_name: string;
         last_name: string;

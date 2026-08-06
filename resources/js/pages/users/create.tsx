@@ -12,7 +12,7 @@ interface CreateUserForm {
     email: string;
     password: string;
     password_confirmation: string;
-    type: 'admin' | 'chef' | 'staff';
+    type: 'admin' | 'manager' | 'chef' | 'staff';
     [key: string]: string;
 }
 
@@ -69,6 +69,7 @@ export default function CreateUser() {
                             onChange={(e) => setData('type', e.target.value as CreateUserForm['type'])}
                         >
                             <option value="admin">Admin</option>
+                            <option value="manager">Manager</option>
                             <option value="chef">Chef</option>
                             <option value="staff">Staff</option>
                         </select>

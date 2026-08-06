@@ -1,8 +1,8 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEchoPublic } from '@laravel/echo-react';
 import { useState } from 'react';
 
@@ -13,7 +13,8 @@ interface Item {
 
 interface OrderItem {
     id: number;
-    item: Item;
+    item: Item | null;
+    item_name?: string | null;
     quantity: number;
     price: number;
     orderItem_status: string;
@@ -39,7 +40,7 @@ interface Props {
     order: Order;
 }
 
-const ORDER_STATUSES = ['pending', 'cooking','ready', 'completed', 'cancelled'] as const;
+const ORDER_STATUSES = ['pending', 'processing', 'completed'] as const;
 const PAYMENT_STATUSES = ['pending', 'paid', 'failed'] as const;
 const ITEM_STATUSES = ['pending', 'preparing', 'ready', 'served', 'cancelled'] as const;
 
@@ -144,6 +145,8 @@ function ItemStatusForm({ orderId, orderItem }: { orderId: number; orderItem: Or
 }
 
 export default function OrderShow({ order }: Props) {
+    const { auth } = usePage<SharedData>().props;
+    const isAdmin = auth.user.type === 'admin';
     const [printing, setPrinting] = useState(false);
 
     useEchoPublic<{ order_id: number }>('orders', ['.order.status.updated', '.order.item.status.updated'], (data) => {
@@ -159,6 +162,15 @@ export default function OrderShow({ order }: Props) {
             preserveScroll: true,
             preserveState: true,
             onFinish: () => setPrinting(false),
+        });
+    };
+
+    const handleCancel = () => {
+        if (!confirm('Are you sure you want to cancel this order?')) return;
+
+        router.patch(route('orders.cancel', order.id), {}, {
+            preserveScroll: true,
+            preserveState: true,
         });
     };
 
@@ -183,6 +195,11 @@ export default function OrderShow({ order }: Props) {
                         >
                             {printing ? 'Printing…' : 'Print'}
                         </Button>
+                        {isAdmin && !['completed', 'cancelled'].includes(order.order_status) && (
+                            <Button variant="destructive" size="sm" onClick={handleCancel}>
+                                Cancel
+                            </Button>
+                        )}
                         {!['completed', 'cancelled'].includes(order.order_status) && (
                             <Button variant="outline" asChild>
                                 <Link href={route('orders.edit', order.id)}>Add Items</Link>
@@ -236,7 +253,13 @@ export default function OrderShow({ order }: Props) {
                         <div className="space-y-3">
                             <div>
                                 <p className="text-xs text-muted-foreground mb-1">Order Status</p>
-                                <OrderStatusForm orderId={order.id} currentStatus={order.order_status} />
+                                {order.order_status === 'cancelled' ? (
+                                    <Badge variant="destructive" className="capitalize">
+                                        {order.order_status}
+                                    </Badge>
+                                ) : (
+                                    <OrderStatusForm orderId={order.id} currentStatus={order.order_status} />
+                                )}
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground mb-1">Payment Status</p>
@@ -271,7 +294,7 @@ export default function OrderShow({ order }: Props) {
                         <tbody>
                             {order.items.map((orderItem) => (
                                 <tr key={orderItem.id} className="border-t">
-                                    <td className="px-4 py-3">{orderItem.item?.name ?? '—'}</td>
+                                    <td className="px-4 py-3">{orderItem.item_name ?? orderItem.item?.name ?? '—'}</td>
                                     <td className="px-4 py-3">{orderItem.quantity}</td>
                                     <td className="px-4 py-3">Rs. {Number(orderItem.price).toFixed(2)}</td>
                                     <td className="px-4 py-3">Rs. {(Number(orderItem.price) * orderItem.quantity).toFixed(2)}</td>

@@ -13,6 +13,7 @@ interface EditCategoryForm {
     name: string;
     description: string;
     food_type: 'lunch' | 'dinner' | 'both';
+    sort_order: string;
     image: File | null;
     counter_ids: number[];
     [key: string]: string | number[] | File | null;
@@ -23,6 +24,7 @@ type CategoryRecord = {
     name: string;
     description?: string;
     food_type: 'lunch' | 'dinner' | 'both';
+    sort_order?: number;
     image?: string | null;
     image_url?: string | null;
     is_active: boolean;
@@ -45,6 +47,7 @@ export default function EditCategory({ category, counters }: { category: Categor
         name: category.name ?? '',
         description: category.description ?? '',
         food_type: category.food_type ?? 'both',
+        sort_order: String(category.sort_order ?? ''),
         image: null,
         counter_ids: category.counters?.map((counter) => counter.id) ?? [],
     });
@@ -109,6 +112,19 @@ export default function EditCategory({ category, counters }: { category: Categor
                             </SelectContent>
                         </Select>
                         <InputError message={errors.food_type} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="sort_order">Display Order</Label>
+                        <Input
+                            id="sort_order"
+                            type="number"
+                            min="0"
+                            value={data.sort_order}
+                            onChange={(e) => setData('sort_order', e.target.value)}
+                            placeholder="Lower numbers show first"
+                        />
+                        <InputError message={errors.sort_order} />
                     </div>
 
                     <div className="grid gap-3">

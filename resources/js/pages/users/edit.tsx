@@ -11,7 +11,7 @@ interface StaffUser {
     id: number;
     name: string;
     email: string;
-    type: 'admin' | 'chef' | 'staff';
+    type: 'admin' | 'manager' | 'chef' | 'staff';
 }
 
 interface EditUserProps {
@@ -23,7 +23,7 @@ interface EditUserForm {
     email: string;
     password: string;
     password_confirmation: string;
-    type: 'admin' | 'chef' | 'staff';
+    type: 'admin' | 'manager' | 'chef' | 'staff';
     [key: string]: string;
 }
 
@@ -80,6 +80,7 @@ export default function EditUser({ user }: EditUserProps) {
                             onChange={(e) => setData('type', e.target.value as EditUserForm['type'])}
                         >
                             <option value="admin">Admin</option>
+                            <option value="manager">Manager</option>
                             <option value="chef">Chef</option>
                             <option value="staff">Staff</option>
                         </select>

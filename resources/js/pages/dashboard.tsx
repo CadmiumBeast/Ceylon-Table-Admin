@@ -4,7 +4,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router } from '@inertiajs/react';
 import { useEchoPublic } from '@laravel/echo-react';
-import { ShoppingBag, ShoppingCart, TrendingUp, Clock } from 'lucide-react';
+import { ShoppingBag, ShoppingCart, Clock } from 'lucide-react';
 
 interface Stats {
     total_orders_today: number;
@@ -19,6 +19,7 @@ interface Stats {
 interface OrderItem {
     id: number;
     item: { name: string } | null;
+    item_name?: string | null;
     quantity: number;
     price: number;
     orderItem_status: string;
@@ -109,13 +110,13 @@ export default function Dashboard({ stats, currentOrders }: Props) {
                         sub={`${stats.completed_orders_today} completed`}
                         icon={ShoppingBag}
                     />
-                    <StatCard
+                    {/* <StatCard
                         label="Revenue Today"
                         value={`Rs. ${stats.revenue_today.toFixed(2)}`}
                         sub={`Rs. ${stats.total_revenue.toFixed(2)} all time`}
                         icon={TrendingUp}
                         accent="text-green-600"
-                    />
+                    /> */}
                     <StatCard
                         label="Pending Orders"
                         value={stats.pending_orders}
@@ -172,7 +173,7 @@ export default function Dashboard({ stats, currentOrders }: Props) {
                                             <div className="mt-2 flex flex-wrap gap-2">
                                                 {order.items.map((oi) => (
                                                     <div key={oi.id} className="flex items-center gap-1 rounded-md border bg-muted/40 px-2 py-1 text-xs">
-                                                        <span>{oi.item?.name ?? '—'} ×{oi.quantity}</span>
+                                                        <span>{oi.item_name ?? oi.item?.name ?? '—'} ×{oi.quantity}</span>
                                                         <Badge variant={itemStatusVariant(oi.orderItem_status)} className="text-[10px] px-1 py-0 h-4 capitalize">
                                                             {oi.orderItem_status}
                                                         </Badge>

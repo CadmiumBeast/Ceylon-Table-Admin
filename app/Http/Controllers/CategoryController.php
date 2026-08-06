@@ -11,7 +11,7 @@ class CategoryController extends Controller
 {
     public function index()
     {
-        $categories = Category::query()->latest()->get();
+        $categories = Category::query()->orderBy('sort_order')->orderBy('id')->get();
         return inertia('categories/index', ['categories' => $categories]);
     }
 
@@ -24,10 +24,15 @@ class CategoryController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge([
+            'sort_order' => $request->filled('sort_order') ? $request->input('sort_order') : null,
+        ]);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:categories,name'],
             'description' => ['nullable', 'string'],
             'food_type' => ['required', 'in:lunch,dinner,both'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
             'counter_ids' => ['nullable', 'array'],
             'counter_ids.*' => ['integer', 'exists:counters,id'],
@@ -40,6 +45,8 @@ class CategoryController extends Controller
             $imageUrl = $this->uploadImageToS3($request->file('image'));
             $validated['image'] = $imageUrl;
         }
+
+        $validated['sort_order'] = $validated['sort_order'] ?? (Category::max('sort_order') + 1);
 
         $category = Category::create(array_merge($validated, ['is_active' => true]));
         $category->counters()->sync($counterIds);
@@ -61,10 +68,15 @@ class CategoryController extends Controller
     {
         $category = Category::findOrFail($id);
 
+        $request->merge([
+            'sort_order' => $request->filled('sort_order') ? $request->input('sort_order') : null,
+        ]);
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:categories,name,' . $category->id],
             'description' => ['nullable', 'string'],
             'food_type' => ['required', 'in:lunch,dinner,both'],
+            'sort_order' => ['nullable', 'integer', 'min:0'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:5120'],
             'counter_ids' => ['nullable', 'array'],
             'counter_ids.*' => ['integer', 'exists:counters,id'],
@@ -75,6 +87,10 @@ class CategoryController extends Controller
 
         if ($request->hasFile('image')) {
             $validated['image'] = $this->uploadImageToS3($request->file('image'));
+        }
+
+        if (! array_key_exists('sort_order', $validated) || $validated['sort_order'] === null) {
+            $validated['sort_order'] = $category->sort_order ?? 0;
         }
 
         $category->update($validated);

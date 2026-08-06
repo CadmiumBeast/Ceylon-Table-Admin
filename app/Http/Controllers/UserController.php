@@ -14,7 +14,7 @@ class UserController extends Controller
     public function index(): Response
     {
         $users = User::query()
-            ->whereIn('type', ['admin', 'chef', 'staff'])
+            ->whereIn('type', ['admin', 'manager', 'chef', 'staff'])
             ->latest()
             ->get()
             ->map(fn(User $user) => [
@@ -42,7 +42,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'type' => ['required', Rule::in(['admin', 'chef', 'staff'])],
+            'type' => ['required', Rule::in(['admin', 'manager', 'chef', 'staff'])],
         ]);
 
         User::create([
@@ -73,7 +73,7 @@ class UserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
-            'type' => ['required', Rule::in(['admin', 'chef', 'staff'])],
+            'type' => ['required', Rule::in(['admin', 'manager', 'chef', 'staff'])],
         ]);
 
         $updateData = [

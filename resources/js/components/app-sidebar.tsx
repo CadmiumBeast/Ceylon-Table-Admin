@@ -15,13 +15,13 @@ const mainNavItems: SidebarNavItem[] = [
         title: 'Dashboard',
         url: '/dashboard',
         icon: LayoutGrid,
-        visibleFor: ['admin', 'staff'],
+        visibleFor: ['admin', 'manager', 'staff'],
     },
     {
         title: 'Orders',
         url: '/orders',
         icon: ShoppingBag,
-        visibleFor: ['admin'],
+        visibleFor: ['admin','staff'],
     },
     {
         title: 'Active Carts',
@@ -39,13 +39,13 @@ const mainNavItems: SidebarNavItem[] = [
         title: 'Customers',
         url: '/customers',
         icon: Users,
-        visibleFor: ['admin'],
+        visibleFor: ['admin', 'manager', 'staff'],
     },
     {
         title: 'Tables',
         url: '/tables',
         icon: Armchair,
-        visibleFor: ['admin'],
+        visibleFor: ['admin', 'manager'],
     },
     {
         title: 'Categories',
@@ -57,19 +57,19 @@ const mainNavItems: SidebarNavItem[] = [
         title: 'Items',
         url: '/items',
         icon: ClipboardList,
-        visibleFor: ['admin'],
+        visibleFor: ['admin', 'manager'],
     },
     {
         title: 'Juice Bar',
         url: '/juice-bar',
         icon: ShoppingBag,
-        visibleFor: ['admin', 'staff'],
+        visibleFor: ['admin', 'manager', 'staff'],
     },
     {
         title: 'Reports',
         url: '/reports/sales',
         icon: ClipboardList,
-        visibleFor: ['admin'],
+        visibleFor: ['admin', 'manager'],
     }
 
 

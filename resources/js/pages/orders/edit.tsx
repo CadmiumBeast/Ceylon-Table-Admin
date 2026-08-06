@@ -19,7 +19,8 @@ interface Category {
 
 interface OrderItem {
     id: number;
-    item: Item;
+    item: Item | null;
+    item_name?: string | null;
     quantity: number;
     price: number;
     orderItem_status: string;
@@ -223,7 +224,7 @@ export default function OrderEdit({ order, categories }: Props) {
                             {order.items.map((oi) => (
                                 <div key={oi.id} className="flex items-center justify-between text-sm">
                                     <span>
-                                        {oi.quantity}x {oi.item?.name ?? '—'}
+                                        {oi.quantity}x {oi.item_name ?? oi.item?.name ?? '—'}
                                     </span>
                                     <Badge variant="outline" className="text-xs capitalize">
                                         {oi.orderItem_status}

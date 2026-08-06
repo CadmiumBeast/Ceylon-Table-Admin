@@ -13,7 +13,7 @@ class ItemController extends Controller
     {
         $categories = Category::with(['items' => function ($q) {
             $q->orderBy('name');
-        }])->orderBy('name')->get();
+        }])->orderBy('sort_order')->orderBy('id')->get();
 
         return Inertia::render('items/index', [
             'categories' => $categories,
@@ -22,7 +22,7 @@ class ItemController extends Controller
 
     public function create()
     {
-        $categories = Category::orderBy('name')->get();
+        $categories = Category::orderBy('sort_order')->orderBy('id')->get();
         return Inertia::render('items/create', [
             'categories' => $categories,
         ]);
@@ -59,7 +59,7 @@ class ItemController extends Controller
 
     public function edit(Item $item)
     {
-        $categories = Category::orderBy('name')->get();
+        $categories = Category::orderBy('sort_order')->orderBy('id')->get();
         return Inertia::render('items/edit', [
             'item' => $item,
             'categories' => $categories,

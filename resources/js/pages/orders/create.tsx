@@ -36,6 +36,13 @@ interface CartEntry {
     quantity: number;
 }
 
+interface CustomCartEntry {
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+}
+
 interface Props {
     categories: Category[];
     tables: TableRow[];
@@ -68,7 +75,12 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
     const [selectedCatId, setSelectedCatId] = useState<number | null>(
         categories.length > 0 ? categories[0].id : null,
     );
+    const [itemSearch, setItemSearch] = useState('');
     const [cart, setCart] = useState<CartEntry[]>([]);
+    const [customItems, setCustomItems] = useState<CustomCartEntry[]>([]);
+    const [customItemName, setCustomItemName] = useState('');
+    const [customItemPrice, setCustomItemPrice] = useState('');
+    const [customItemQuantity, setCustomItemQuantity] = useState('1');
 
     // Step 3
     const [userId, setUserId] = useState<number | null>(null);
@@ -84,6 +96,52 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
         : [];
 
     const selectedCat = categories.find((c) => c.id === selectedCatId) ?? null;
+    const visibleItems = selectedCat
+        ? selectedCat.items.filter((item) =>
+              item.name.toLowerCase().includes(itemSearch.trim().toLowerCase()),
+          )
+        : [];
+
+    const addCustomItem = () => {
+        const name = customItemName.trim();
+        const price = Number(customItemPrice);
+        const quantity = Math.max(1, Number(customItemQuantity) || 1);
+
+        if (!name || Number.isNaN(price) || price < 0) return;
+
+        setCustomItems((prev) => {
+            const existing = prev.find(
+                (entry) => entry.name.toLowerCase() === name.toLowerCase() && entry.price === price,
+            );
+
+            if (existing) {
+                return prev.map((entry) =>
+                    entry.id === existing.id ? { ...entry, quantity: entry.quantity + quantity } : entry,
+                );
+            }
+
+            return [...prev, { id: `custom-${Date.now()}`, name, price, quantity }];
+        });
+
+        setCustomItemName('');
+        setCustomItemPrice('');
+        setCustomItemQuantity('1');
+    };
+
+    const updateCustomQuantity = (id: string, quantity: number) => {
+        if (quantity <= 0) {
+            setCustomItems((prev) => prev.filter((entry) => entry.id !== id));
+            return;
+        }
+
+        setCustomItems((prev) =>
+            prev.map((entry) => (entry.id === id ? { ...entry, quantity } : entry)),
+        );
+    };
+
+    const removeCustomItem = (id: string) => {
+        setCustomItems((prev) => prev.filter((entry) => entry.id !== id));
+    };
 
     const addToCart = (item: Item) => {
         setCart((prev) => {
@@ -108,11 +166,12 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
     };
 
     const subtotal = cart.reduce((sum, e) => sum + e.item.price * e.quantity, 0);
+    const customSubtotal = customItems.reduce((sum, e) => sum + e.price * e.quantity, 0);
     const discountNum = Math.max(0, parseFloat(discount) || 0);
-    const total = Math.max(0, subtotal - discountNum);
+    const total = Math.max(0, subtotal + customSubtotal - discountNum);
 
     const canStep1 = orderType !== '' && (orderType !== 'dine_in' || tableId !== null);
-    const canStep2 = cart.length > 0;
+    const canStep2 = cart.length > 0 || customItems.length > 0;
 
     const handleSubmit = () => {
         if (submitting) return;
@@ -128,6 +187,11 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                 payment_method: paymentMethod,
                 discount: discountNum,
                 items: cart.map((e) => ({ id: e.item.id, quantity: e.quantity })),
+                custom_items: customItems.map((e) => ({
+                    name: e.name,
+                    price: e.price,
+                    quantity: e.quantity,
+                })),
             },
             {
                 onError: () => setSubmitting(false),
@@ -139,7 +203,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Create Order" />
 
-            <div className="mx-auto max-w-7xl space-y-6 p-4">
+            <div className="w-full space-y-6 p-4">
                 {/* Step indicator */}
                 <div className="flex items-center gap-2">
                     {([1, 2, 3] as Step[]).map((s) => (
@@ -273,18 +337,28 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                     </p>
                                 </div>
                                 <Badge variant="outline">
-                                    {selectedCat?.items.length ?? 0} items
+                                    {visibleItems.length} items
                                 </Badge>
                             </div>
 
+                            <div>
+                                <input
+                                    type="search"
+                                    value={itemSearch}
+                                    onChange={(e) => setItemSearch(e.target.value)}
+                                    placeholder="Search items..."
+                                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                />
+                            </div>
+
                             {selectedCat ? (
-                                selectedCat.items.length === 0 ? (
+                                visibleItems.length === 0 ? (
                                     <p className="text-sm text-muted-foreground py-4">
-                                        No items in this category.
+                                        {itemSearch.trim() ? 'No matching items found.' : 'No items in this category.'}
                                     </p>
                                 ) : (
                                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-                                        {selectedCat.items.map((item) => {
+                                        {visibleItems.map((item) => {
                                             const inCart = cart.find((e) => e.item.id === item.id);
                                             return (
                                                 <button
@@ -331,19 +405,64 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                 </p>
                             </div>
 
+                            <div className="rounded-md border bg-background p-3 space-y-3">
+                                <div>
+                                    <p className="text-sm font-medium">One-time Item</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        Add a custom line item that is not in the item catalog.
+                                    </p>
+                                </div>
+                                <div className="grid gap-2">
+                                    <input
+                                        type="text"
+                                        value={customItemName}
+                                        onChange={(e) => setCustomItemName(e.target.value)}
+                                        placeholder="Item name"
+                                        className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                    />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={customItemPrice}
+                                            onChange={(e) => setCustomItemPrice(e.target.value)}
+                                            placeholder="Price"
+                                            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                        />
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            step="1"
+                                            value={customItemQuantity}
+                                            onChange={(e) => setCustomItemQuantity(e.target.value)}
+                                            placeholder="Qty"
+                                            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                                        />
+                                    </div>
+                                    <Button type="button" variant="outline" onClick={addCustomItem}>
+                                        Add One-time Item
+                                    </Button>
+                                </div>
+                            </div>
+
                             {cart.length === 0 ? (
-                                <p className="text-sm text-muted-foreground flex-1">
-                                    No items added yet. Click items from the middle panel.
-                                </p>
+                                <>
+                                    {customItems.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground flex-1">
+                                            No items added yet. Click items from the middle panel.
+                                        </p>
+                                    ) : null}
+                                </>
                             ) : (
                                 <div className="flex-1 space-y-2 overflow-y-auto max-h-[400px]">
                                     {cart.map((entry) => (
                                         <div
                                             key={entry.item.id}
-                                            className="flex items-center justify-between gap-2 rounded-md border bg-background p-2 text-sm"
+                                            className="flex items-start justify-between gap-2 rounded-md border bg-background p-2 text-sm"
                                         >
                                             <div className="min-w-0 flex-1">
-                                                <p className="truncate font-medium">{entry.item.name}</p>
+                                                <p className="break-words font-medium leading-snug">{entry.item.name}</p>
                                                 <p className="text-xs text-muted-foreground">
                                                     Rs. {Number(entry.item.price).toFixed(2)} each
                                                 </p>
@@ -371,9 +490,53 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                 </div>
                             )}
 
+                            {customItems.length > 0 && (
+                                <div className="space-y-2 border-t pt-3">
+                                    <p className="text-sm font-medium">One-time Items</p>
+                                    <div className="space-y-2">
+                                        {customItems.map((entry) => (
+                                            <div
+                                                key={entry.id}
+                                                className="flex items-start justify-between gap-2 rounded-md border bg-background p-2 text-sm"
+                                            >
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="break-words font-medium leading-snug">{entry.name}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Rs. {entry.price.toFixed(2)} each
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        onClick={() => updateCustomQuantity(entry.id, entry.quantity - 1)}
+                                                        className="h-6 w-6 rounded border text-center text-sm hover:bg-muted"
+                                                    >
+                                                        −
+                                                    </button>
+                                                    <span className="w-6 text-center">{entry.quantity}</span>
+                                                    <button
+                                                        onClick={() => updateCustomQuantity(entry.id, entry.quantity + 1)}
+                                                        className="h-6 w-6 rounded border text-center text-sm hover:bg-muted"
+                                                    >
+                                                        +
+                                                    </button>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => removeCustomItem(entry.id)}
+                                                    >
+                                                        ×
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="border-t pt-3 text-sm font-medium flex justify-between">
                                 <span>Subtotal</span>
-                                <span>Rs. {subtotal.toFixed(2)}</span>
+                                <span>Rs. {(subtotal + customSubtotal).toFixed(2)}</span>
                             </div>
 
                             <div className="flex gap-2">
@@ -531,12 +694,20 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                         <span>Rs. {(e.item.price * e.quantity).toFixed(2)}</span>
                                     </div>
                                 ))}
+                                {customItems.map((e) => (
+                                    <div key={e.id} className="flex justify-between">
+                                        <span>
+                                            {e.name} <span className="text-muted-foreground">× {e.quantity}</span>
+                                        </span>
+                                        <span>Rs. {(e.price * e.quantity).toFixed(2)}</span>
+                                    </div>
+                                ))}
                             </div>
 
                             <div className="border-t pt-3 space-y-1 text-sm">
                                 <div className="flex justify-between">
                                     <span className="text-muted-foreground">Subtotal</span>
-                                    <span>Rs. {subtotal.toFixed(2)}</span>
+                                    <span>Rs. {(subtotal + customSubtotal).toFixed(2)}</span>
                                 </div>
                                 {discountNum > 0 && (
                                     <div className="flex justify-between text-green-600">

@@ -21,6 +21,7 @@ interface JuiceBarOrderItem {
     quantity: number;
     price: number;
     orderItem_status: string;
+    item_name?: string | null;
     item: {
         id: number;
         name: string;
@@ -117,7 +118,7 @@ export default function JuiceBarIndex({ orders }: Props) {
                                         <tbody>
                                             {order.items.map((orderItem) => (
                                                 <tr key={orderItem.id} className="border-t">
-                                                    <td className="px-4 py-3 font-medium">{orderItem.item?.name ?? '—'}</td>
+                                                    <td className="px-4 py-3 font-medium">{orderItem.item_name ?? orderItem.item?.name ?? '—'}</td>
                                                     <td className="px-4 py-3">{orderItem.quantity}</td>
                                                     <td className="px-4 py-3">
                                                         <Badge variant={statusVariant(orderItem.orderItem_status)} className="capitalize">

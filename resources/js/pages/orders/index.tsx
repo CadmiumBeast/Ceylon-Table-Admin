@@ -7,8 +7,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link, router } from '@inertiajs/react';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEchoPublic } from '@laravel/echo-react';
 import { useState } from 'react';
 
@@ -56,6 +56,8 @@ const paymentStatusVariant = (status: string): 'secondary' | 'destructive' | 'ou
 };
 
 export default function OrdersIndex({ orders }: Props) {
+    const { auth } = usePage<SharedData>().props;
+    const isAdmin = auth.user.type === 'admin';
     const [processingId, setProcessingId] = useState<number | null>(null);
     const [printingId, setPrintingId] = useState<number | null>(null);
 
@@ -92,14 +94,13 @@ export default function OrdersIndex({ orders }: Props) {
         );
     };
 
-    // Added cancel function with a confirmation prompt
     const cancelOrder = (order: Order) => {
         if (!confirm('Are you sure you want to cancel this order?')) return;
 
         setProcessingId(order.id);
         router.patch(
-            route('orders.update-status', order.id),
-            { order_status: 'cancelled' },
+            route('orders.cancel', order.id),
+            {},
             {
                 preserveScroll: true,
                 preserveState: true,
@@ -234,8 +235,7 @@ export default function OrdersIndex({ orders }: Props) {
                                                         </Button>
                                                     )}
 
-                                                    {/* Added Cancel Button */}
-                                                    {!isCompleted && !isCancelled && (
+                                                    {isAdmin && !isCompleted && !isCancelled && (
                                                         <Button
                                                             variant="destructive"
                                                             size="sm"

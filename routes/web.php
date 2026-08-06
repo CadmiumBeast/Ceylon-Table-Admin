@@ -20,24 +20,57 @@ Route::get('/privacy-policy', function () {
 
 Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::resource('users', UserController::class)->except(['show']);
-    Route::resource('customers', \App\Http\Controllers\CustomerController::class)->except(['show']);
 
-    //Table routes
-    Route::get('/tables', [\App\Http\Controllers\TableController::class, 'index'])->name('table.index');
-    Route::get('/tables/create', [\App\Http\Controllers\TableController::class, 'create'])->name('table.create');
-    Route::post('tables/{id}/disable', [\App\Http\Controllers\TableController::class, 'disable'])->name('table.disable');
-    Route::post('tables/{id}/enable', [\App\Http\Controllers\TableController::class, 'enable'])->name('table.enable');
 
     // Category routes
     Route::resource('categories', \App\Http\Controllers\CategoryController::class)->except(['show']);
     Route::post('categories/{id}/disable', [\App\Http\Controllers\CategoryController::class, 'disable'])->name('categories.disable');
     Route::post('categories/{id}/enable', [\App\Http\Controllers\CategoryController::class, 'enable'])->name('categories.enable');
 
-    // Item routes
-    Route::resource('items', \App\Http\Controllers\ItemController::class)->except(['show']);
+
+
+
+});
+
+Route::middleware(['auth', 'user-access:customer'])->group(function () {
+
+});
+
+Route::middleware(['auth', 'user-access:chef'])->group(function () {
+
+});
+
+Route::middleware(['auth', 'user-access:admin,manager'])->group(function () {
+    //Table routes
+    Route::get('/tables', [\App\Http\Controllers\TableController::class, 'index'])->name('table.index');
+    Route::get('/tables/create', [\App\Http\Controllers\TableController::class, 'create'])->name('table.create');
+    Route::post('tables/{id}/disable', [\App\Http\Controllers\TableController::class, 'disable'])->name('table.disable');
+    Route::post('tables/{id}/enable', [\App\Http\Controllers\TableController::class, 'enable'])->name('table.enable');
+
     Route::post('items/{item}/unavailable', [\App\Http\Controllers\ItemController::class, 'unavailable'])->name('items.unavailable');
     Route::post('items/{item}/available', [\App\Http\Controllers\ItemController::class, 'available'])->name('items.available');
 
+    // Item routes
+    Route::resource('items', \App\Http\Controllers\ItemController::class)->except(['show']);
+
+    // Cart routes
+    Route::get('/carts', [\App\Http\Controllers\CartController::class, 'index'])->name('carts.index');
+
+    Route::get('/reports/sales', [SalesReportController::class, 'index'])->name('reports.sales');
+    Route::get('/reports/sales/data', [SalesReportController::class, 'data'])->name('reports.sales.data');
+    Route::post('/reports/sales/print', [SalesReportController::class, 'print'])->name('reports.sales.print');
+
+});
+Route::middleware(['auth', 'user-access:admin,manager,staff'])->group(function () {
+    Route::resource('customers', \App\Http\Controllers\CustomerController::class)->except(['show']);
+
+
+
+
+});
+Route::middleware(['auth', 'user-access:admin,staff'])->group(function () {
+    Route::get('/juice-bar', [\App\Http\Controllers\OrderController::class, 'juiceBar'])->name('juice-bar.index');
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     // Order routes
     Route::get('/orders', [\App\Http\Controllers\OrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/create', [\App\Http\Controllers\OrderController::class, 'create'])->name('orders.create');
@@ -50,26 +83,11 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::post('/orders/{order}/silent-print', [\App\Http\Controllers\OrderController::class, 'silentPrint'])->name('orders.silent-print');
     Route::get('orders/{order}/edit', [\App\Http\Controllers\OrderController::class, 'edit'])->name('orders.edit');
     Route::post('orders/{order}/add-items', [\App\Http\Controllers\OrderController::class, 'addItems'])->name('orders.add-items');
-    // Cart routes
-    Route::get('/carts', [\App\Http\Controllers\CartController::class, 'index'])->name('carts.index');
-
-    Route::get('/reports/sales', [SalesReportController::class, 'index'])->name('reports.sales');
-    Route::get('/reports/sales/data', [SalesReportController::class, 'data'])->name('reports.sales.data');
-    Route::post('/reports/sales/print', [SalesReportController::class, 'print'])->name('reports.sales.print');
-});
-
-Route::middleware(['auth', 'user-access:customer'])->group(function () {
 
 });
 
-Route::middleware(['auth', 'user-access:chef'])->group(function () {
-
-});
-
-Route::middleware(['auth', 'user-access:admin,staff'])->group(function () {
-    Route::get('/juice-bar', [\App\Http\Controllers\OrderController::class, 'juiceBar'])->name('juice-bar.index');
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-
+Route::middleware(['auth', 'user-access:admin'])->group(function () {
+    Route::patch('/orders/{order}/cancel', [\App\Http\Controllers\OrderController::class, 'cancel'])->name('orders.cancel');
 });
 
 Route::middleware(['auth', 'user-access:delivery'])->group(function () {

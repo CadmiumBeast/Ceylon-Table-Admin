@@ -10,6 +10,7 @@ type CategoryRecord = {
     name: string;
     description?: string;
     food_type?: 'lunch' | 'dinner' | 'both';
+    sort_order?: number;
     image?: string;
     image_url?: string | null;
     is_active: boolean;
@@ -77,6 +78,7 @@ export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
                                 <th className="px-4 py-3 font-medium">Name</th>
                                 <th className="px-4 py-3 font-medium">Description</th>
                                 <th className="px-4 py-3 font-medium">Food Type</th>
+                                <th className="px-4 py-3 font-medium">Order</th>
                                 <th className="px-4 py-3 font-medium">Active</th>
                                 <th className="px-4 py-3 font-medium">Created</th>
                                 <th className="px-4 py-3 font-medium text-right">Actions</th>
@@ -85,7 +87,7 @@ export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
                         <tbody>
                             {filteredCategories.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
+                                    <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
                                         {search ? 'No categories match your search.' : 'No categories found.'}
                                     </td>
                                 </tr>
@@ -111,6 +113,7 @@ export default function CategoriesIndex({ categories }: CategoriesIndexProps) {
                                         <td className="px-4 py-3 font-medium">{cat.name}</td>
                                         <td className="px-4 py-3">{cat.description ?? '—'}</td>
                                         <td className="px-4 py-3 capitalize">{cat.food_type ?? 'both'}</td>
+                                        <td className="px-4 py-3">{cat.sort_order ?? 0}</td>
                                         <td className="px-4 py-3">
                                             <Badge variant={cat.is_active ? 'default' : 'destructive'} className="capitalize">
                                                 {cat.is_active ? 'Active' : 'Disabled'}
