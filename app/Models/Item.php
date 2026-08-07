@@ -11,10 +11,12 @@ class Item extends Model
         'name',
         'description',
         'price',
+        'takeaway_price',
         'category_id',
         'is_active',
         'image_url',
         'quantity',
+
     ];
 
     public function category()
@@ -27,7 +29,16 @@ class Item extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    
+    public function priceForOrderType(string $orderType): float
+    {
+        if ($orderType === 'takeaway' && $this->takeaway_price !== null) {
+            return (float) $this->takeaway_price;
+        }
+
+        return (float) $this->price;
+    }
+
+
 
     protected function imageUrl(): Attribute
     {

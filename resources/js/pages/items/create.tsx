@@ -18,6 +18,7 @@ export default function CreateItem({ categories }: { categories: { id: number; n
         name: '',
         description: '',
         price: '',
+        takeaway_price: '',
         category_id: '',
         quantity: '',
     });
@@ -52,6 +53,7 @@ export default function CreateItem({ categories }: { categories: { id: number; n
         form.append('name', formData.name);
         form.append('description', formData.description);
         form.append('price', formData.price);
+        form.append('takeaway_price', formData.takeaway_price);
         form.append('category_id', formData.category_id);
         form.append('quantity', formData.quantity);
         if (imageFile) {
@@ -98,6 +100,18 @@ export default function CreateItem({ categories }: { categories: { id: number; n
                         <Label htmlFor="price">Price</Label>
                         <Input id="price" name="price" value={formData.price} onChange={handleChange} required />
                         <InputError message={errors.price} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="takeaway_price">Takeaway Price</Label>
+                        <Input
+                            id="takeaway_price"
+                            name="takeaway_price"
+                            value={formData.takeaway_price}
+                            onChange={handleChange}
+                            placeholder="Leave blank to use normal price"
+                        />
+                        <InputError message={errors.takeaway_price} />
                     </div>
 
                     <div className="grid gap-2">

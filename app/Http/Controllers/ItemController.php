@@ -34,6 +34,7 @@ class ItemController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'required|numeric',
+            'takeaway_price' => 'nullable|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
@@ -42,6 +43,7 @@ class ItemController extends Controller
             'name' => $request->get('name'),
             'description' => $request->get('description'),
             'price' => $request->get('price'),
+            'takeaway_price' => $request->get('takeaway_price'),
             'category_id' => $request->get('category_id'),
             'is_active' => true,
             'quantity' => $request->get('quantity', 0),
@@ -72,6 +74,7 @@ class ItemController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'price' => 'required|numeric',
+            'takeaway_price' => 'nullable|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
@@ -80,6 +83,7 @@ class ItemController extends Controller
             'name' => $request->get('name'),
             'description' => $request->get('description'),
             'price' => $request->get('price'),
+            'takeaway_price' => $request->get('takeaway_price'),
             'category_id' => $request->get('category_id'),
             'quantity' => $request->get('quantity', $item->quantity),
         ];

@@ -18,6 +18,7 @@ interface EditProps {
         name: string;
         description?: string;
         price: number;
+        takeaway_price?: number | null;
         category_id: number;
         image_url?: string;
         quantity?: number;
@@ -31,6 +32,7 @@ export default function EditItem({ item, categories }: EditProps) {
         name: item.name || '',
         description: item.description || '',
         price: String(item.price || ''),
+        takeaway_price: item.takeaway_price === null || item.takeaway_price === undefined ? '' : String(item.takeaway_price),
         category_id: String(item.category_id || ''),
         quantity: String(item.quantity || ''),
     });
@@ -65,6 +67,7 @@ export default function EditItem({ item, categories }: EditProps) {
         form.append('name', formData.name);
         form.append('description', formData.description);
         form.append('price', formData.price);
+        form.append('takeaway_price', formData.takeaway_price);
         form.append('category_id', formData.category_id);
         form.append('quantity', formData.quantity);
         if (imageFile) {
@@ -112,6 +115,18 @@ export default function EditItem({ item, categories }: EditProps) {
                         <Label htmlFor="price">Price</Label>
                         <Input id="price" name="price" value={formData.price} onChange={handleChange} required />
                         <InputError message={errors.price} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="takeaway_price">Takeaway Price</Label>
+                        <Input
+                            id="takeaway_price"
+                            name="takeaway_price"
+                            value={formData.takeaway_price}
+                            onChange={handleChange}
+                            placeholder="Leave blank to use normal price"
+                        />
+                        <InputError message={errors.takeaway_price} />
                     </div>
 
                     <div className="grid gap-2">

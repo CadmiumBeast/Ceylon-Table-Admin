@@ -28,6 +28,11 @@ use App\Listeners\CreatePrintJobsForOrder;
 
 class OrderController extends Controller
 {
+    private function itemPriceForOrderType(Item $item, string $orderType): float
+    {
+        return $item->priceForOrderType($orderType);
+    }
+
     public function index()
     {
         $orders = Order::with(['user', 'table', 'items.item'])
@@ -99,13 +104,14 @@ class OrderController extends Controller
 
         foreach ($items as $entry) {
             $item = Item::findOrFail($entry['id']);
-            $subtotal += $item->price * $entry['quantity'];
+            $price = $this->itemPriceForOrderType($item, $validated['order_type']);
+            $subtotal += $price * $entry['quantity'];
             $orderItemsData[] = [
                 'item_id'          => $item->id,
                 'item_name'        => $item->name,
                 'is_custom_item'   => false,
                 'quantity'         => $entry['quantity'],
-                'price'            => $item->price,
+                'price'            => $price,
                 'orderItem_status' => 'pending',
             ];
         }
@@ -178,6 +184,10 @@ class OrderController extends Controller
         ]);
 
         $order->update(['order_status' => $request->order_status]);
+
+        if ($request->order_status === 'completed' && $order->table_id) {
+            $order->table()->update(['is_available' => true]);
+        }
 
         $orderTime = OrderTime::firstOrNew(['order_id' => $order->id, 'item_id' => null]);
         if ($request->order_status === 'processing') {
@@ -368,6 +378,7 @@ class OrderController extends Controller
 
         foreach ($validated['items'] as $entry) {
             $item = Item::with('category.counters')->findOrFail($entry['id']);
+            $price = $this->itemPriceForOrderType($item, $order->order_type);
 
             $existing = $order->items()
                 ->where('item_id', $item->id)
@@ -388,7 +399,7 @@ class OrderController extends Controller
                     'item_name'        => $item->name,
                     'is_custom_item'   => false,
                     'quantity'         => $entry['quantity'],
-                    'price'            => $item->price,
+                    'price'            => $price,
                     'orderItem_status' => 'pending',
                 ]);
                 $created->setRelation('item', $item);

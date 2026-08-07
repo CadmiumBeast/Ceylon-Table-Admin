@@ -43,6 +43,13 @@ class ApiController extends Controller
         return $cart;
     }
 
+    private function markTableAvailableForOrder(Order $order): void
+    {
+        if ($order->table_id) {
+            Table::where('id', $order->table_id)->update(['is_available' => true]);
+        }
+    }
+
     //User
 
     public function getDailyStats($userId)
@@ -653,11 +660,7 @@ class ApiController extends Controller
                 'customer_id'    => $customerId, // null if skipped
             ]);
 
-            // Free the table
-            if ($order->table_id) {
-                \App\Models\Table::where('id', $order->table_id)
-                    ->update(['is_available' => true]);
-            }
+            $this->markTableAvailableForOrder($order);
 
             broadcast(new OrderStatusUpdated($order->fresh()))->toOthers();
 

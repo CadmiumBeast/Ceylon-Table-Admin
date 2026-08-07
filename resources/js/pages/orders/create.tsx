@@ -9,6 +9,7 @@ interface Item {
     id: number;
     name: string;
     price: number;
+    takeaway_price: number | null;
     image_url: string | null;
     is_active: boolean;
 }
@@ -101,6 +102,8 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
         : [];
 
     const selectedCat = categories.find((c) => c.id === selectedCatId) ?? null;
+    const getItemPrice = (item: Item) =>
+        orderType === 'takeaway' && item.takeaway_price !== null ? Number(item.takeaway_price) : Number(item.price);
     const allItems: SearchItem[] = categories.flatMap((category) =>
         category.items.map((item) => ({
             ...item,
@@ -190,7 +193,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
         }
     };
 
-    const subtotal = cart.reduce((sum, e) => sum + e.item.price * e.quantity, 0);
+    const subtotal = cart.reduce((sum, e) => sum + getItemPrice(e.item) * e.quantity, 0);
     const customSubtotal = customItems.reduce((sum, e) => sum + e.price * e.quantity, 0);
     const discountNum = Math.max(0, parseFloat(discount) || 0);
     const total = Math.max(0, subtotal + customSubtotal - discountNum);
@@ -405,7 +408,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                                             {item.categoryName}
                                                         </p>
                                                         <p className="mt-1 text-xs text-muted-foreground">
-                                                            Rs. {Number(item.price).toFixed(2)}
+                                                            Rs. {getItemPrice(item).toFixed(2)}
                                                         </p>
                                                         {inCart && (
                                                             <Badge className="mt-2 text-xs" variant="secondary">
@@ -446,7 +449,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                                         {selectedCat.name}
                                                     </p>
                                                     <p className="mt-1 text-xs text-muted-foreground">
-                                                        Rs. {Number(item.price).toFixed(2)}
+                                                        Rs. {getItemPrice(item).toFixed(2)}
                                                     </p>
                                                     {inCart && (
                                                         <Badge className="mt-2 text-xs" variant="secondary">
@@ -554,7 +557,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                             </div>
                                             <div>
                                                 <p className="text-xs text-muted-foreground">Price</p>
-                                                <p className="font-medium">Rs. {(entry.item.price * entry.quantity).toFixed(2)}</p>
+                                                <p className="font-medium">Rs. {(getItemPrice(entry.item) * entry.quantity).toFixed(2)}</p>
                                             </div>
                                         </div>
                                     ))}

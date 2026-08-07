@@ -92,7 +92,7 @@ class SalesReportController extends Controller
         $printer = new Printer($connector);
 
         $titles = [
-            'day_end'  => 'Day End Sales',
+            'day_end'  => 'Sales',
             'category' => 'Category Wise',
             'hourly'   => 'Hourly Sales',
             'item'     => 'Sales by Item',
