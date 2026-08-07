@@ -23,6 +23,8 @@ use Inertia\Inertia;
 use Mike42\Escpos\PrintConnectors\WindowsPrintConnector;
 use Mike42\Escpos\Printer;
 use App\Events\OrderItemsUpdated;
+use App\Events\PrintJobDispatched;
+use App\Listeners\CreatePrintJobsForOrder;
 
 class OrderController extends Controller
 {
@@ -362,10 +364,11 @@ class OrderController extends Controller
             'items.*.quantity'  => 'required|integer|min:1',
         ]);
 
-        foreach ($validated['items'] as $entry) {
-            $item = Item::findOrFail($entry['id']);
+        $newOrderItems = collect();
 
-            // Merge into an existing pending line for the same item, otherwise create a new one
+        foreach ($validated['items'] as $entry) {
+            $item = Item::with('category.counters')->findOrFail($entry['id']);
+
             $existing = $order->items()
                 ->where('item_id', $item->id)
                 ->where('orderItem_status', 'pending')
@@ -373,19 +376,26 @@ class OrderController extends Controller
 
             if ($existing) {
                 $existing->increment('quantity', $entry['quantity']);
+
+                // Represent only the newly added quantity for the kitchen ticket,
+                // not the item's new running total.
+                $ticketLine = (clone $existing)->setRelation('item', $item);
+                $ticketLine->quantity = $entry['quantity'];
+                $newOrderItems->push($ticketLine);
             } else {
-                $order->items()->create([
+                $created = $order->items()->create([
                     'item_id'          => $item->id,
                     'item_name'        => $item->name,
                     'is_custom_item'   => false,
                     'quantity'         => $entry['quantity'],
-                    'price'            => $item->price, // snapshot current price
+                    'price'            => $item->price,
                     'orderItem_status' => 'pending',
                 ]);
+                $created->setRelation('item', $item);
+                $newOrderItems->push($created);
             }
         }
 
-        // Recalculate totals from the fresh set of items
         $order->load('items');
         $subtotal = $order->items->sum(fn($oi) => $oi->price * $oi->quantity);
 
@@ -396,6 +406,9 @@ class OrderController extends Controller
 
         $order->load(['user', 'table', 'items.item']);
         broadcast(new OrderItemsUpdated($order))->toOthers();
+
+        // Print kitchen/station tickets for just the newly added items
+        app(CreatePrintJobsForOrder::class)->createTicketJobs($order, $newOrderItems);
 
         return redirect()->route('orders.show', $order)->with('success', 'Items added to order.');
     }

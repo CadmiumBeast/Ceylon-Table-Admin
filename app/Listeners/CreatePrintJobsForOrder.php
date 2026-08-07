@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use App\Events\PrintJobCreated;
+use App\Models\Order;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use App\Events\OrderPlaced;
@@ -31,12 +32,21 @@ class CreatePrintJobsForOrder
         $order = $event->order;
         $order->loadMissing(['items.item.category.counters', 'table']);
 
+        $this->createTicketJobs($order, $order->items);
+
+        $billCounter = Counter::whereRaw('LOWER(name) = ?', [strtolower($this->billCounterName)])->first();
+        if ($billCounter) {
+            $this->createJob($order, $billCounter, $order->items->all(), type: 'bill');
+        }
+    }
+
+    public function createTicketJobs(Order $order, iterable $orderItems): void
+    {
         $fallbackCounter = Counter::whereRaw('LOWER(name) = ?', [strtolower($this->fallbackCounterName)])->first();
 
-        // Group order items by counter_id
         $itemsByCounter = [];
 
-        foreach ($order->items as $orderItem) {
+        foreach ($orderItems as $orderItem) {
             $counters = $orderItem->item?->category?->counters;
 
             if ($counters && $counters->isNotEmpty()) {
@@ -52,12 +62,6 @@ class CreatePrintJobsForOrder
 
         foreach ($itemsByCounter as $group) {
             $this->createJob($order, $group['counter'], $group['items'], type: 'ticket');
-        }
-
-        // Always send a bill/receipt job to the takeaway/bill counter
-        $billCounter = Counter::whereRaw('LOWER(name) = ?', [strtolower($this->billCounterName)])->first();
-        if ($billCounter) {
-            $this->createJob($order, $billCounter, $order->items->all(), type: 'bill');
         }
     }
 
