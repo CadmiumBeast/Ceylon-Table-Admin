@@ -18,6 +18,7 @@ interface OrderItem {
     quantity: number;
     price: number;
     orderItem_status: string;
+    notes: string | null;
 }
 
 interface Order {
@@ -294,7 +295,13 @@ export default function OrderShow({ order }: Props) {
                         <tbody>
                             {order.items.map((orderItem) => (
                                 <tr key={orderItem.id} className="border-t">
-                                    <td className="px-4 py-3">{orderItem.item_name ?? orderItem.item?.name ?? '—'}</td>
+                                    <td className="px-4 py-3">
+                                        {orderItem.item_name ?? orderItem.item?.name ?? '—'}
+                                        {/* Shaow Note */}
+                                        <span className="block text-xs text-muted-foreground mt-1">
+                                        {orderItem.notes}
+                                        </span>
+                                    </td>
                                     <td className="px-4 py-3">{orderItem.quantity}</td>
                                     <td className="px-4 py-3">Rs. {Number(orderItem.price).toFixed(2)}</td>
                                     <td className="px-4 py-3">Rs. {(Number(orderItem.price) * orderItem.quantity).toFixed(2)}</td>

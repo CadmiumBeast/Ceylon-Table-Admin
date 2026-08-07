@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
@@ -40,6 +48,7 @@ interface Customer {
 interface CartEntry {
     item: Item;
     quantity: number;
+    notes: string | null;
 }
 
 interface CustomCartEntry {
@@ -47,7 +56,12 @@ interface CustomCartEntry {
     name: string;
     price: number;
     quantity: number;
+    notes: string | null;
 }
+
+type NoteTarget =
+    | { type: 'cart'; id: number }
+    | { type: 'custom'; id: string };
 
 interface Props {
     categories: Category[];
@@ -87,6 +101,9 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
     const [customItemName, setCustomItemName] = useState('');
     const [customItemPrice, setCustomItemPrice] = useState('');
     const [customItemQuantity, setCustomItemQuantity] = useState('1');
+    const [notesDialogOpen, setNotesDialogOpen] = useState(false);
+    const [notesDraft, setNotesDraft] = useState('');
+    const [notesTarget, setNotesTarget] = useState<NoteTarget | null>(null);
 
     // Step 3
     const [userId, setUserId] = useState<number | null>(null);
@@ -148,7 +165,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                 );
             }
 
-            return [...prev, { id: `custom-${Date.now()}`, name, price, quantity }];
+            return [...prev, { id: `custom-${Date.now()}`, name, price, quantity, notes: null }];
         });
 
         setCustomItemName('');
@@ -171,6 +188,40 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
         setCustomItems((prev) => prev.filter((entry) => entry.id !== id));
     };
 
+    const openNotesDialog = (target: NoteTarget, currentNotes: string | null) => {
+        setNotesTarget(target);
+        setNotesDraft(currentNotes ?? '');
+        setNotesDialogOpen(true);
+    };
+
+    const saveNotes = () => {
+        if (!notesTarget) return;
+
+        const nextNotes = notesDraft.trim();
+
+        if (notesTarget.type === 'cart') {
+            setCart((prev) =>
+                prev.map((entry) =>
+                    entry.item.id === notesTarget.id
+                        ? { ...entry, notes: nextNotes.length > 0 ? nextNotes : null }
+                        : entry,
+                ),
+            );
+        } else {
+            setCustomItems((prev) =>
+                prev.map((entry) =>
+                    entry.id === notesTarget.id
+                        ? { ...entry, notes: nextNotes.length > 0 ? nextNotes : null }
+                        : entry,
+                ),
+            );
+        }
+
+        setNotesDialogOpen(false);
+        setNotesTarget(null);
+        setNotesDraft('');
+    };
+
     const addToCart = (item: Item) => {
         setCart((prev) => {
             const existing = prev.find((e) => e.item.id === item.id);
@@ -179,7 +230,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                     e.item.id === item.id ? { ...e, quantity: e.quantity + 1 } : e,
                 );
             }
-            return [...prev, { item, quantity: 1 }];
+            return [...prev, { item, quantity: 1, notes: null }];
         });
     };
 
@@ -214,11 +265,12 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                 customer_name: customerName || undefined,
                 payment_method: paymentMethod,
                 discount: discountNum,
-                items: cart.map((e) => ({ id: e.item.id, quantity: e.quantity })),
+                items: cart.map((e) => ({ id: e.item.id, quantity: e.quantity, notes: e.notes })),
                 custom_items: customItems.map((e) => ({
                     name: e.name,
                     price: e.price,
                     quantity: e.quantity,
+                    notes: e.notes,
                 })),
             },
             {
@@ -558,6 +610,22 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                             <div>
                                                 <p className="text-xs text-muted-foreground">Price</p>
                                                 <p className="font-medium">Rs. {(getItemPrice(entry.item) * entry.quantity).toFixed(2)}</p>
+
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => openNotesDialog({ type: 'cart', id: entry.item.id }, entry.notes)}
+                                                >
+                                                    {entry.notes ? 'Edit Notes' : 'Add Notes'}
+                                                </Button>
+
+                                                {entry.notes && (
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        Notes: {entry.notes}
+                                                    </p>
+                                                )}
+
                                             </div>
                                         </div>
                                     ))}
@@ -606,6 +674,21 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                                 <div>
                                                     <p className="text-xs text-muted-foreground">Price</p>
                                                     <p className="font-medium">Rs. {entry.price.toFixed(2)}</p>
+
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => openNotesDialog({ type: 'custom', id: entry.id }, entry.notes)}
+                                                    >
+                                                        {entry.notes ? 'Edit Notes' : 'Add Notes'}
+                                                    </Button>
+
+                                                    {entry.notes && (
+                                                        <p className="text-xs text-muted-foreground mt-1">
+                                                            Notes: {entry.notes}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -634,15 +717,13 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                     </div>
                 )}
 
-                {/* Step 3: Customer details + confirm */}
                 {step === 3 && (
                     <div className="grid gap-4 lg:grid-cols-2">
-                        {/* Customer details */}
                         <div className="rounded-lg border bg-card p-6 space-y-4">
                             <h2 className="text-lg font-medium">Customer Details</h2>
 
                             <div className="relative">
-                                <label className="text-sm font-medium mb-1 block">
+                                <label className="mb-1 block text-sm font-medium">
                                     Search by Phone Number (optional)
                                 </label>
                                 <input
@@ -663,7 +744,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                     className="w-full rounded-md border bg-background px-3 py-2 text-sm"
                                 />
                                 {showSuggestions && phoneSuggestions.length > 0 && (
-                                    <ul className="absolute z-10 mt-1 w-full rounded-md border bg-background shadow-md text-sm max-h-48 overflow-y-auto">
+                                    <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border bg-background text-sm shadow-md">
                                         {phoneSuggestions.map((c) => (
                                             <li
                                                 key={c.id}
@@ -676,7 +757,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                                 className="cursor-pointer px-3 py-2 hover:bg-muted"
                                             >
                                                 <span className="font-medium">{c.phone}</span>
-                                                <span className="text-muted-foreground ml-2">{c.name}</span>
+                                                <span className="ml-2 text-muted-foreground">{c.name}</span>
                                             </li>
                                         ))}
                                     </ul>
@@ -689,9 +770,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                             </div>
 
                             <div>
-                                <label className="text-sm font-medium mb-1 block">
-                                    Customer Name
-                                </label>
+                                <label className="mb-1 block text-sm font-medium">Customer Name</label>
                                 <input
                                     type="text"
                                     value={customerName}
@@ -702,10 +781,8 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                             </div>
 
                             <div>
-                                <label className="text-sm font-medium mb-1 block">
-                                    Payment Method
-                                </label>
-                                <div className="flex gap-2 flex-wrap">
+                                <label className="mb-1 block text-sm font-medium">Payment Method</label>
+                                <div className="flex flex-wrap gap-2">
                                     {PAYMENT_METHODS.map((m) => (
                                         <button
                                             key={m}
@@ -723,9 +800,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                             </div>
 
                             <div>
-                                <label className="text-sm font-medium mb-1 block">
-                                    Discount (Rs.)
-                                </label>
+                                <label className="mb-1 block text-sm font-medium">Discount (Rs.)</label>
                                 <input
                                     type="number"
                                     min="0"
@@ -737,8 +812,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                             </div>
                         </div>
 
-                        {/* Order summary */}
-                        <div className="rounded-lg border bg-card p-6 space-y-4 flex flex-col">
+                        <div className="flex flex-col rounded-lg border bg-card p-6 space-y-4">
                             <h2 className="text-lg font-medium">Order Summary</h2>
 
                             <div className="space-y-1 text-sm">
@@ -763,14 +837,14 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                             </div>
 
                             <div className="border-t pt-3 space-y-2 text-sm flex-1">
-                                <p className="font-medium text-muted-foreground mb-2">Items</p>
+                                <p className="mb-2 font-medium text-muted-foreground">Items</p>
                                 {cart.map((e) => (
                                     <div key={e.item.id} className="flex justify-between">
                                         <span>
                                             {e.item.name}{' '}
                                             <span className="text-muted-foreground">× {e.quantity}</span>
                                         </span>
-                                        <span>Rs. {(e.item.price * e.quantity).toFixed(2)}</span>
+                                        <span>Rs. {(getItemPrice(e.item) * e.quantity).toFixed(2)}</span>
                                     </div>
                                 ))}
                                 {customItems.map((e) => (
@@ -794,7 +868,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                         <span>− Rs. {discountNum.toFixed(2)}</span>
                                     </div>
                                 )}
-                                <div className="flex justify-between font-semibold text-base border-t pt-2 mt-2">
+                                <div className="mt-2 flex justify-between border-t pt-2 text-base font-semibold">
                                     <span>Total</span>
                                     <span>Rs. {total.toFixed(2)}</span>
                                 </div>
@@ -804,17 +878,43 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                 <Button variant="outline" className="flex-1" onClick={() => setStep(2)}>
                                     Back
                                 </Button>
-                                <Button
-                                    className="flex-1"
-                                    onClick={handleSubmit}
-                                    disabled={submitting}
-                                >
+                                <Button className="flex-1" onClick={handleSubmit} disabled={submitting}>
                                     {submitting ? 'Placing Order…' : 'Place Order'}
                                 </Button>
                             </div>
                         </div>
                     </div>
                 )}
+
+                <Dialog open={notesDialogOpen} onOpenChange={setNotesDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Add Notes</DialogTitle>
+                            <DialogDescription>
+                                Add an optional note for this item. Leave it blank to clear the note.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Note</label>
+                            <textarea
+                                value={notesDraft}
+                                onChange={(e) => setNotesDraft(e.target.value)}
+                                placeholder="Write item instructions or special requests"
+                                className="min-h-28 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                            />
+                        </div>
+
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setNotesDialogOpen(false)}>
+                                Cancel
+                            </Button>
+                            <Button type="button" onClick={saveNotes}>
+                                Save Notes
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </AppLayout>
     );

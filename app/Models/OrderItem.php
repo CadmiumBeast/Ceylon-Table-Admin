@@ -13,6 +13,7 @@ class OrderItem extends Model
         'is_custom_item',
         'quantity',
         'price',
+        'notes',
         'orderItem_status',
     ];
 

@@ -84,10 +84,12 @@ class OrderController extends Controller
             'items'          => 'nullable|array',
             'items.*.id'     => 'required|exists:items,id',
             'items.*.quantity' => 'required|integer|min:1',
+            'items.*.notes'  => 'nullable|string|max:1000',
             'custom_items'   => 'nullable|array',
             'custom_items.*.name' => 'required|string|max:255',
             'custom_items.*.price' => 'required|numeric|min:0',
             'custom_items.*.quantity' => 'required|integer|min:1',
+            'custom_items.*.notes' => 'nullable|string|max:1000',
         ]);
 
         $items = $validated['items'] ?? [];
@@ -105,6 +107,7 @@ class OrderController extends Controller
         foreach ($items as $entry) {
             $item = Item::findOrFail($entry['id']);
             $price = $this->itemPriceForOrderType($item, $validated['order_type']);
+            $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
             $subtotal += $price * $entry['quantity'];
             $orderItemsData[] = [
                 'item_id'          => $item->id,
@@ -112,6 +115,7 @@ class OrderController extends Controller
                 'is_custom_item'   => false,
                 'quantity'         => $entry['quantity'],
                 'price'            => $price,
+                'notes'            => $notes !== '' ? $notes : null,
                 'orderItem_status' => 'pending',
             ];
         }
@@ -120,6 +124,7 @@ class OrderController extends Controller
             $name = trim((string) $entry['name']);
             $price = (float) $entry['price'];
             $quantity = (int) $entry['quantity'];
+            $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
 
             $subtotal += $price * $quantity;
             $orderItemsData[] = [
@@ -128,6 +133,7 @@ class OrderController extends Controller
                 'is_custom_item'   => true,
                 'quantity'         => $quantity,
                 'price'            => $price,
+                'notes'            => $notes !== '' ? $notes : null,
                 'orderItem_status' => 'pending',
             ];
         }
