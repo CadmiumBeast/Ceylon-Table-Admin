@@ -11,7 +11,7 @@ interface DayEndData {
     gross_sales: number;
     total_discount: number;
     net_sales: number;
-    cash: number;
+    Cash: number;
     Visa: number;
     Master: number;
     Uber: number;
@@ -143,7 +143,7 @@ function DayEndView({ data }: { data: DayEndData }) {
         { label: 'Gross Sales', value: money(data.gross_sales) },
         { label: 'Discounts', value: money(data.total_discount) },
         { label: 'Net Sales', value: money(data.net_sales) },
-        { label: 'Cash', value: money(data.cash) },
+        { label: 'Cash', value: money(data.Cash) },
         { label: 'Visa', value: money(data.Visa) },
         { label: 'Master', value: money(data.Master) },
         { label: 'Uber', value: money(data.Uber) },
