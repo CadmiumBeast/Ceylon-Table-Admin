@@ -263,6 +263,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                 table_id: tableId,
                 user_id: userId,
                 customer_name: customerName || undefined,
+                customer_phone: userId === null ? (phoneSearch || undefined) : undefined,
                 payment_method: paymentMethod,
                 discount: discountNum,
                 items: cart.map((e) => ({ id: e.item.id, quantity: e.quantity, notes: e.notes })),

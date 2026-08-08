@@ -8,6 +8,7 @@ use App\Events\OrderStatusUpdated;
 use App\Events\PrintJobCreated;
 use App\Models\Category;
 use App\Models\Counter;
+use App\Models\Customer;
 use App\Models\Item;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -17,6 +18,7 @@ use App\Models\Table;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -79,6 +81,7 @@ class OrderController extends Controller
             'table_id'       => 'nullable|exists:tables,id',
             'user_id'        => 'nullable|exists:users,id',
             'customer_name'  => 'nullable|string|max:255',
+            'customer_phone' => 'nullable|string|max:20',
             'payment_method' => 'nullable|string|max:100',
             'discount'       => 'nullable|numeric|min:0',
             'items'          => 'nullable|array',
@@ -91,6 +94,8 @@ class OrderController extends Controller
             'custom_items.*.quantity' => 'required|integer|min:1',
             'custom_items.*.notes' => 'nullable|string|max:1000',
         ]);
+
+
 
         $items = $validated['items'] ?? [];
         $customItems = $validated['custom_items'] ?? [];
@@ -138,6 +143,38 @@ class OrderController extends Controller
             ];
         }
 
+        $userId = $validated['user_id'] ?? null;
+
+        if (! $userId && ! empty($validated['customer_name']) && ! empty($validated['customer_phone'])) {
+            $existingCustomer = Customer::where('phone_number', $validated['customer_phone'])->first();
+
+            if ($existingCustomer) {
+                // Same phone number already on file — attach to that customer instead
+                // of creating a duplicate.
+                $userId = $existingCustomer->user_id;
+            } else {
+                $newUser = DB::transaction(function () use ($validated) {
+                    $user = User::create([
+                        'name'     => $validated['customer_name'],
+                        'email'    => 'guest_' . Str::random(10) . '@ceylontable.lk',
+                        'password' => Str::random(20),
+                        'type'     => 'customer',
+                    ]);
+
+                    Customer::create([
+                        'user_id'      => $user->id,
+                        'first_name'   => $validated['customer_name'],
+                        'last_name'    => '',
+                        'phone_number' => $validated['customer_phone'],
+                    ]);
+
+                    return $user;
+                });
+
+                $userId = $newUser->id;
+            }
+        }
+
         $lastOrder = \App\Models\Order::orderBy('id', 'desc')->first();
             if ($lastOrder) {
                 $lastOrderNumber = $lastOrder->order_number;
@@ -157,7 +194,7 @@ class OrderController extends Controller
             'order_status'   => 'pending',
             'payment_status' => 'pending',
             'payment_method' => $validated['payment_method'] ?? null,
-            'user_id'        => $validated['user_id'] ?? null,
+            'user_id'        => $userId,
             'table_id'       => $validated['table_id'] ?? null,
             'subtotal'       => $subtotal,
             'discount'       => $discount,
