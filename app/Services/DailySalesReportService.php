@@ -27,7 +27,7 @@ class DailySalesReportService
             'gross_sales'         => round($orders->sum('subtotal'), 2),
             'total_discount'      => round($orders->sum('discount'), 2),
             'net_sales'           => round($orders->sum('total_price'), 2),
-            'cash'                => $methodTotal('cash'),
+            'Cash'                => $methodTotal('cash'),
             'Visa'                => $methodTotal('visa'),
             'Master'              => $methodTotal('master'),
             'Uber'                => $methodTotal('uber'),
