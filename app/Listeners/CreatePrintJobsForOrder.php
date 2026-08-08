@@ -79,9 +79,10 @@ class CreatePrintJobsForOrder
             'table_name'   => $order->table?->name,
             'counter_name' => $counter->name,
             'items'        => collect($items)->map(fn ($i) => [
-                'name'     => $i->item?->name,
+                'name' => $i->item_name ?? $i->item?->name ?? 'Unknown Item',
                 'quantity' => $i->quantity,
                 'price'    => $i->price,
+                'notes'    => $i->notes,
             ])->values(),
             'total_price'  => $type === 'bill' ? $order->total_price : null,
             'printed_at_request' => now()->toDateTimeString(),
