@@ -375,14 +375,28 @@ class OrderController extends Controller
     public function addItems(Request $request, Order $order)
     {
         $validated = $request->validate([
-            'items'             => 'required|array|min:1',
-            'items.*.id'        => 'required|exists:items,id',
-            'items.*.quantity'  => 'required|integer|min:1',
+            'items'                    => 'nullable|array',
+            'items.*.id'               => 'required|exists:items,id',
+            'items.*.quantity'         => 'required|integer|min:1',
+            'custom_items'             => 'nullable|array',
+            'custom_items.*.name'      => 'required|string|max:255',
+            'custom_items.*.price'     => 'required|numeric|min:0',
+            'custom_items.*.quantity'  => 'required|integer|min:1',
+            'custom_items.*.notes'     => 'nullable|string|max:1000',
         ]);
+
+        $items = $validated['items'] ?? [];
+        $customItems = $validated['custom_items'] ?? [];
+
+        if (count($items) === 0 && count($customItems) === 0) {
+            throw ValidationException::withMessages([
+                'items' => 'Add at least one menu item or one-time item.',
+            ]);
+        }
 
         $newOrderItems = collect();
 
-        foreach ($validated['items'] as $entry) {
+        foreach ($items as $entry) {
             $item = Item::with('category.counters')->findOrFail($entry['id']);
             $price = $this->itemPriceForOrderType($item, $order->order_type);
 
@@ -411,6 +425,27 @@ class OrderController extends Controller
                 $created->setRelation('item', $item);
                 $newOrderItems->push($created);
             }
+        }
+
+        // One-time / custom items always get their own new line — there's no
+        // catalog item to match against, so nothing to merge with.
+        foreach ($customItems as $entry) {
+            $name = trim((string) $entry['name']);
+            $price = (float) $entry['price'];
+            $quantity = (int) $entry['quantity'];
+            $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
+
+            $created = $order->items()->create([
+                'item_id'          => null,
+                'item_name'        => $name,
+                'is_custom_item'   => true,
+                'quantity'         => $quantity,
+                'price'            => $price,
+                'notes'            => $notes !== '' ? $notes : null,
+                'orderItem_status' => 'pending',
+            ]);
+            // No 'item' relation to set — item_id is null for custom items.
+            $newOrderItems->push($created);
         }
 
         $order->load('items');
