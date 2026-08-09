@@ -30,7 +30,7 @@ class CreatePrintJobsForOrder
     public function handle(OrderPlaced $event): void
     {
         $order = $event->order;
-        $order->loadMissing(['items.item.category.counters', 'table']);
+        $order->loadMissing(['items.item.category.counters', 'table', 'user.customer']);
 
         $ticketableItems = $order->items->where('source', '!=', 'prepared');
         $this->createTicketJobs($order, $ticketableItems);
@@ -43,6 +43,8 @@ class CreatePrintJobsForOrder
 
     public function createTicketJobs(Order $order, iterable $orderItems): void
     {
+        $order->loadMissing(['user.customer']);
+
         $fallbackCounter = Counter::whereRaw('LOWER(name) = ?', [strtolower($this->fallbackCounterName)])->first();
 
         $itemsByCounter = [];
@@ -79,6 +81,9 @@ class CreatePrintJobsForOrder
             'order_type'   => $order->order_type,
             'table_name'   => $order->table?->name,
             'counter_name' => $counter->name,
+            'customer_name' => $order->user?->customer?->name,
+            'customer_contact' => $order->user?->customer?->contact_number,
+            'customer_address' => $order->user?->customer?->address,
             'items'        => collect($items)->map(fn ($i) => [
                 'name' => $i->item_name ?? $i->item?->name ?? 'Unknown Item',
                 'quantity' => $i->quantity,

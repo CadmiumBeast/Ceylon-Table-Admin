@@ -250,7 +250,7 @@ class OrderController extends Controller
             return $order;
         });
 
-        $order->load(['user', 'table', 'items.item']);
+        $order->load(['user.customer', 'table', 'items.item']);
         broadcast(new OrderPlaced($order))->toOthers();
 
         return redirect()->route('orders.show', $order)->with('success', 'Order created successfully.');
@@ -260,7 +260,7 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
-        $order->load(['user', 'table', 'items.item']);
+        $order->load(['user.customer', 'table', 'items.item']);
 
         return Inertia::render('orders/show', [
             'order' => $order,
@@ -301,7 +301,7 @@ class OrderController extends Controller
             'total_price' => max(0, $subtotal - $order->discount),
         ]);
 
-        $order->load(['user', 'table', 'items.item']);
+        $order->load(['user.customer', 'table', 'items.item']);
         broadcast(new OrderItemsUpdated($order))->toOthers();
 
         return redirect()->back()->with('success', $eligibleForPrepared
@@ -489,7 +489,7 @@ class OrderController extends Controller
 
     public function silentPrint(Order $order)
     {
-        $order->load(['user', 'table', 'items.item']);
+        $order->load(['user.customer', 'table', 'items.item']);
 
         try {
             $counter = Counter::forRole('Front Counter');
@@ -510,6 +510,9 @@ class OrderController extends Controller
                     'date'         => $order->created_at->format('d-m-Y'),
                     'time'         => $order->created_at->format('h:i A'),
                     'counter'      => $counter->name ?? '01',
+                    'customer_name' => $order->user?->customer?->name,
+                    'customer_contact' => $order->user?->customer?->contact_number ,
+                    'customer_address' => $order->user?->customer?->address ,
                     'items'        => $order->items->map(fn ($orderItem) => [
                         'name'     => $orderItem->item_name ?? $orderItem->item?->name ?? 'Unknown Item',
                         'quantity' => $orderItem->quantity,
@@ -534,7 +537,7 @@ class OrderController extends Controller
 
     public function edit(Order $order)
     {
-        $order->load(['user', 'table', 'items.item']);
+        $order->load(['user.customer', 'table', 'items.item']);
 
         $categories = Category::with(['items' => fn($q) => $q->where('is_active', true)->orderBy('name')])
             ->orderBy('sort_order')
@@ -664,7 +667,7 @@ class OrderController extends Controller
             'total_price' => max(0, $subtotal - $order->discount),
         ]);
 
-        $order->load(['user', 'table', 'items.item']);
+        $order->load(['user.customer', 'table', 'items.item']);
         broadcast(new OrderItemsUpdated($order))->toOthers();
 
         app(CreatePrintJobsForOrder::class)->createTicketJobs($order, $newOrderItems);
