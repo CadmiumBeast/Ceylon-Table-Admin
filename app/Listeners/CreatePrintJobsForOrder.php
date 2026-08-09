@@ -81,9 +81,9 @@ class CreatePrintJobsForOrder
             'order_type'   => $order->order_type,
             'table_name'   => $order->table?->name,
             'counter_name' => $counter->name,
-            'customer_name' => $order->user->customer->name,
-            'customer_contact' => $order->user->customer->contact_number,
-            'customer_address' => $order->user->customer->address,
+            'customer_name' => $order->user?->customer?->name,
+            'customer_contact' => $order->user?->customer?->contact_number,
+            'customer_address' => $order->user?->customer?->address,
             'items'        => collect($items)->map(fn ($i) => [
                 'name' => $i->item_name ?? $i->item?->name ?? 'Unknown Item',
                 'quantity' => $i->quantity,

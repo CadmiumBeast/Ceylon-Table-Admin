@@ -510,7 +510,7 @@ class OrderController extends Controller
                     'date'         => $order->created_at->format('d-m-Y'),
                     'time'         => $order->created_at->format('h:i A'),
                     'counter'      => $counter->name ?? '01',
-                    'customer_name' => $order->user->customer->name,
+                    'customer_name' => $order->user?->customer?->name,
                     'customer_contact' => $order->user?->customer?->contact_number ,
                     'customer_address' => $order->user?->customer?->address ,
                     'items'        => $order->items->map(fn ($orderItem) => [
