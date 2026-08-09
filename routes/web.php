@@ -73,6 +73,7 @@ Route::middleware(['auth', 'user-access:admin,staff'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     // Order routes
     Route::get('/orders', [\App\Http\Controllers\OrderController::class, 'index'])->name('orders.index');
+    Route::get('/orders/completed', [\App\Http\Controllers\OrderController::class, 'indexCompleted'])->name('orders.completed');
     Route::get('/orders/create', [\App\Http\Controllers\OrderController::class, 'create'])->name('orders.create');
     Route::post('/orders', [\App\Http\Controllers\OrderController::class, 'store'])->name('orders.store');
     Route::get('/orders/{order}', [\App\Http\Controllers\OrderController::class, 'show'])->name('orders.show');
@@ -83,7 +84,7 @@ Route::middleware(['auth', 'user-access:admin,staff'])->group(function () {
     Route::post('/orders/{order}/silent-print', [\App\Http\Controllers\OrderController::class, 'silentPrint'])->name('orders.silent-print');
     Route::get('orders/{order}/edit', [\App\Http\Controllers\OrderController::class, 'edit'])->name('orders.edit');
     Route::post('orders/{order}/add-items', [\App\Http\Controllers\OrderController::class, 'addItems'])->name('orders.add-items');
-
+    Route::delete('orders/{order}/items/{orderItem}', [\App\Http\Controllers\OrderController::class, 'removeItem'])->name('orders.remove-item');
 });
 
 Route::middleware(['auth', 'user-access:admin'])->group(function () {

@@ -149,6 +149,7 @@ export default function OrderShow({ order }: Props) {
     const { auth } = usePage<SharedData>().props;
     const isAdmin = auth.user.type === 'admin';
     const [printing, setPrinting] = useState(false);
+    const [removingId, setRemovingId] = useState<number | null>(null);
 
     useEchoPublic<{ order_id: number }>('orders', ['.order.status.updated', '.order.item.status.updated'], (data) => {
         if (data.order_id === order.id) {
@@ -172,6 +173,16 @@ export default function OrderShow({ order }: Props) {
         router.patch(route('orders.cancel', order.id), {}, {
             preserveScroll: true,
             preserveState: true,
+        });
+    };
+
+    const removeItem = (orderItem: OrderItem) => {
+        if (!confirm(`Remove ${orderItem.item_name ?? orderItem.item?.name ?? 'this item'}? If it's already prepared, it'll be saved for reuse on another order.`)) return;
+
+        setRemovingId(orderItem.id);
+        router.delete(route('orders.remove-item', { order: order.id, orderItem: orderItem.id }), {
+            preserveScroll: true,
+            onFinish: () => setRemovingId(null),
         });
     };
 
@@ -290,6 +301,7 @@ export default function OrderShow({ order }: Props) {
                                 <th className="px-4 py-3 font-medium">Line Total</th>
                                 <th className="px-4 py-3 font-medium">Status</th>
                                 <th className="px-4 py-3 font-medium">Change Status</th>
+                                <th className="px-4 py-3 font-medium">Remove</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -297,10 +309,11 @@ export default function OrderShow({ order }: Props) {
                                 <tr key={orderItem.id} className="border-t">
                                     <td className="px-4 py-3">
                                         {orderItem.item_name ?? orderItem.item?.name ?? '—'}
-                                        {/* Shaow Note */}
-                                        <span className="block text-xs text-muted-foreground mt-1">
-                                        {orderItem.notes}
-                                        </span>
+                                        {orderItem.notes && (
+                                            <span className="block text-xs text-muted-foreground mt-1">
+                                                {orderItem.notes}
+                                            </span>
+                                        )}
                                     </td>
                                     <td className="px-4 py-3">{orderItem.quantity}</td>
                                     <td className="px-4 py-3">Rs. {Number(orderItem.price).toFixed(2)}</td>
@@ -312,6 +325,17 @@ export default function OrderShow({ order }: Props) {
                                     </td>
                                     <td className="px-4 py-3">
                                         <ItemStatusForm orderId={order.id} orderItem={orderItem} />
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-destructive"
+                                            disabled={removingId === orderItem.id || ['served', 'cancelled'].includes(orderItem.orderItem_status)}
+                                            onClick={() => removeItem(orderItem)}
+                                        >
+                                            {removingId === orderItem.id ? 'Removing…' : 'Remove'}
+                                        </Button>
                                     </td>
                                 </tr>
                             ))}

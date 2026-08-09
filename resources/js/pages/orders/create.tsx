@@ -58,6 +58,17 @@ interface CustomCartEntry {
     quantity: number;
     notes: string | null;
 }
+interface PreparedStockEntry {
+    quantity: number;
+    item_name: string;
+}
+
+interface Props {
+    categories: Category[];
+    tables: TableRow[];
+    customers: Customer[];
+    preparedStock: Record<number, PreparedStockEntry>; // NEW
+}
 
 type NoteTarget =
     | { type: 'cart'; id: number }
@@ -84,7 +95,7 @@ const PAYMENT_METHODS = ['cash', 'card', 'online'] as const;
 
 type Step = 1 | 2 | 3;
 
-export default function CreateOrder({ categories, tables, customers }: Props) {
+export default function CreateOrder({ categories, tables, customers, preparedStock }: Props) {
     const [step, setStep] = useState<Step>(1);
 
     // Step 1
@@ -463,6 +474,11 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                                         <p className="mt-1 text-xs text-muted-foreground">
                                                             Rs. {getItemPrice(item).toFixed(2)}
                                                         </p>
+                                                        {preparedStock[item.id] && (
+                                                            <Badge variant="secondary" className="mt-1 text-xs">
+                                                                {preparedStock[item.id].quantity} ready — no wait
+                                                            </Badge>
+                                                        )}
                                                         {inCart && (
                                                             <Badge className="mt-2 text-xs" variant="secondary">
                                                                 {inCart.quantity} selected
@@ -474,51 +490,56 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                         </div>
                                     )
                                 ) : selectedCat ? (
-                                visibleItems.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground py-4">
-                                        No items in this category.
-                                    </p>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-                                        {visibleItems.map((item) => {
-                                            const inCart = cart.find((e) => e.item.id === item.id);
-                                            return (
-                                                <button
-                                                    key={item.id}
-                                                    onClick={() => addToCart(item)}
-                                                    className="rounded-lg border bg-background p-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
-                                                >
-                                                    {item.image_url && (
-                                                        <img
-                                                            src={item.image_url}
-                                                            alt={item.name}
-                                                            className="mb-2 h-20 w-full rounded object-cover"
-                                                        />
-                                                    )}
-                                                    <p className="text-sm font-medium leading-tight">
-                                                        {item.name}
-                                                    </p>
-                                                    <p className="mt-1 text-xs text-muted-foreground">
-                                                        {selectedCat.name}
-                                                    </p>
-                                                    <p className="mt-1 text-xs text-muted-foreground">
-                                                        Rs. {getItemPrice(item).toFixed(2)}
-                                                    </p>
-                                                    {inCart && (
-                                                        <Badge className="mt-2 text-xs" variant="secondary">
-                                                            {inCart.quantity} selected
-                                                        </Badge>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                )
-                            ) : (
-                                <p className="text-sm text-muted-foreground py-4">
-                                    Select a category from the left sidebar.
-                                </p>
-                            )}
+                                        visibleItems.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground py-4">
+                                                No items in this category.
+                                            </p>
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+                                                {visibleItems.map((item) => {
+                                                    const inCart = cart.find((e) => e.item.id === item.id);
+                                                    return (
+                                                        <button
+                                                            key={item.id}
+                                                            onClick={() => addToCart(item)}
+                                                            className="rounded-lg border bg-background p-3 text-left transition-colors hover:border-primary hover:bg-primary/5"
+                                                        >
+                                                            {item.image_url && (
+                                                                <img
+                                                                    src={item.image_url}
+                                                                    alt={item.name}
+                                                                    className="mb-2 h-20 w-full rounded object-cover"
+                                                                />
+                                                            )}
+                                                            <p className="text-sm font-medium leading-tight">
+                                                                {item.name}
+                                                            </p>
+                                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                                {selectedCat.name}
+                                                            </p>
+                                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                                Rs. {getItemPrice(item).toFixed(2)}
+                                                            </p>
+                                                            {preparedStock[item.id] && (
+                                                                <Badge variant="secondary" className="mt-1 text-xs">
+                                                                    {preparedStock[item.id].quantity} ready — no wait
+                                                                </Badge>
+                                                            )}
+                                                            {inCart && (
+                                                                <Badge className="mt-2 text-xs" variant="secondary">
+                                                                    {inCart.quantity} selected
+                                                                </Badge>
+                                                            )}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        )
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground py-4">
+                                            Select a category from the left sidebar.
+                                        </p>
+                                    )}
                         </div>
 
                         {/* Selected items */}

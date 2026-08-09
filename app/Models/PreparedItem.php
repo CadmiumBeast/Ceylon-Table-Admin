@@ -4,24 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class OrderItem extends Model
+class PreparedItem extends Model
 {
     protected $fillable = [
-        'order_id',
         'item_id',
         'item_name',
-        'is_custom_item',
-        'quantity',
         'price',
-        'notes',
-        'orderItem_status',
-        'source'
+        'quantity',
+        'oldest_prepared_at',
     ];
 
-    public function order()
-    {
-        return $this->belongsTo(Order::class);
-    }
+    protected $casts = [
+        'oldest_prepared_at' => 'datetime',
+    ];
 
     public function item()
     {

@@ -63,7 +63,18 @@ const breadcrumbs = (orderNumber: string): BreadcrumbItem[] => [
     { title: 'Add Items', href: '#' },
 ];
 
-export default function OrderEdit({ order, categories }: Props) {
+interface PreparedStockEntry {
+    quantity: number;
+    item_name: string;
+}
+
+interface Props {
+    order: Order;
+    categories: Category[];
+    preparedStock: Record<number, PreparedStockEntry>; // NEW
+}
+
+export default function OrderEdit({ order, categories, preparedStock }: Props) {
     const [cart, setCart] = useState<CartLine[]>([]);
     const [customItems, setCustomItems] = useState<CustomCartLine[]>([]);
     const [customItemName, setCustomItemName] = useState('');
@@ -215,18 +226,26 @@ export default function OrderEdit({ order, categories }: Props) {
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3">
-                            {currentCategory?.items.map((item) => (
-                                <button
-                                    key={item.id}
-                                    onClick={() => addToCart(item)}
-                                    className="flex flex-col items-start rounded-md border p-3 text-left hover:bg-muted/50"
-                                >
-                                    <span className="text-sm font-medium">{item.name}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                        Rs. {getItemPrice(item).toFixed(2)}
-                                    </span>
-                                </button>
-                            ))}
+                            {currentCategory?.items.map((item) => {
+                                const prepared = preparedStock[item.id];
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => addToCart(item)}
+                                        className="flex flex-col items-start rounded-md border p-3 text-left hover:bg-muted/50"
+                                    >
+                                        <span className="text-sm font-medium">{item.name}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                            Rs. {getItemPrice(item).toFixed(2)}
+                                        </span>
+                                        {prepared && (
+                                            <Badge variant="secondary" className="mt-1 text-xs">
+                                                {prepared.quantity} ready — no wait
+                                            </Badge>
+                                        )}
+                                    </button>
+                                );
+                            })}
                             {!currentCategory?.items.length && (
                                 <p className="col-span-full text-sm text-muted-foreground">
                                     No items in this category.

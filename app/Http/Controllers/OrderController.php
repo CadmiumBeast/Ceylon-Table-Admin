@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Events\OrderItemStatusUpdated;
 use App\Events\OrderPlaced;
 use App\Events\OrderStatusUpdated;
+use App\Events\PreparedStockUpdated;
 use App\Events\PrintJobCreated;
 use App\Models\Category;
 use App\Models\Counter;
@@ -13,6 +14,8 @@ use App\Models\Item;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderTime;
+use App\Models\PreparedItem;
+use App\Models\PreparedItemLog;
 use App\Models\PrintJob;
 use App\Models\Table;
 use App\Models\User;
@@ -38,10 +41,28 @@ class OrderController extends Controller
     public function index()
     {
         $orders = Order::with(['user', 'table', 'items.item'])
+            ->where('order_status', '!=', 'cancelled')
+            ->where(function ($query) {
+                $query->where('order_status', '!=', 'completed')
+                    ->orWhere('payment_status', '!=', 'paid');
+            })
             ->orderByDesc('created_at')
             ->get();
 
         return Inertia::render('orders/index', [
+            'orders' => $orders,
+        ]);
+    }
+
+    public function indexCompleted()
+    {
+        $orders = Order::with(['user', 'table', 'items.item'])
+            ->where('order_status', 'completed')
+            ->where('payment_status', 'paid')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return Inertia::render('orders/completed', [
             'orders' => $orders,
         ]);
     }
@@ -53,9 +74,7 @@ class OrderController extends Controller
             ->orderBy('id')
             ->get();
 
-        $tables = Table::where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $tables = Table::where('is_active', true)->orderBy('name')->get();
 
         $customers = User::where('type', 'customer')
             ->with('customer')
@@ -67,10 +86,15 @@ class OrderController extends Controller
                 'phone' => $u->customer?->phone_number,
             ]);
 
+        $preparedStock = PreparedItem::where('quantity', '>', 0)
+            ->get(['item_id', 'item_name', 'quantity'])
+            ->keyBy('item_id');
+
         return Inertia::render('orders/create', [
-            'categories' => $categories,
-            'tables'     => $tables,
-            'customers'  => $customers,
+            'categories'    => $categories,
+            'tables'        => $tables,
+            'customers'     => $customers,
+            'preparedStock' => $preparedStock,
         ]);
     }
 
@@ -95,8 +119,6 @@ class OrderController extends Controller
             'custom_items.*.notes' => 'nullable|string|max:1000',
         ]);
 
-
-
         $items = $validated['items'] ?? [];
         $customItems = $validated['custom_items'] ?? [];
 
@@ -106,51 +128,12 @@ class OrderController extends Controller
             ]);
         }
 
-        $subtotal = 0;
-        $orderItemsData = [];
-
-        foreach ($items as $entry) {
-            $item = Item::findOrFail($entry['id']);
-            $price = $this->itemPriceForOrderType($item, $validated['order_type']);
-            $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
-            $subtotal += $price * $entry['quantity'];
-            $orderItemsData[] = [
-                'item_id'          => $item->id,
-                'item_name'        => $item->name,
-                'is_custom_item'   => false,
-                'quantity'         => $entry['quantity'],
-                'price'            => $price,
-                'notes'            => $notes !== '' ? $notes : null,
-                'orderItem_status' => 'pending',
-            ];
-        }
-
-        foreach ($customItems as $entry) {
-            $name = trim((string) $entry['name']);
-            $price = (float) $entry['price'];
-            $quantity = (int) $entry['quantity'];
-            $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
-
-            $subtotal += $price * $quantity;
-            $orderItemsData[] = [
-                'item_id'          => null,
-                'item_name'        => $name,
-                'is_custom_item'   => true,
-                'quantity'         => $quantity,
-                'price'            => $price,
-                'notes'            => $notes !== '' ? $notes : null,
-                'orderItem_status' => 'pending',
-            ];
-        }
-
         $userId = $validated['user_id'] ?? null;
 
         if (! $userId && ! empty($validated['customer_name']) && ! empty($validated['customer_phone'])) {
             $existingCustomer = Customer::where('phone_number', $validated['customer_phone'])->first();
 
             if ($existingCustomer) {
-                // Same phone number already on file — attach to that customer instead
-                // of creating a duplicate.
                 $userId = $existingCustomer->user_id;
             } else {
                 $newUser = DB::transaction(function () use ($validated) {
@@ -175,41 +158,105 @@ class OrderController extends Controller
             }
         }
 
-        $lastOrder = \App\Models\Order::orderBy('id', 'desc')->first();
-            if ($lastOrder) {
-                $lastOrderNumber = $lastOrder->order_number;
-                $lastOrderNumber = str_replace('CTB-', '', $lastOrderNumber);
-                $lastOrderNumber = intval($lastOrderNumber);
-                $order_number = 'CTB-' . str_pad($lastOrderNumber + 1, 6, '0', STR_PAD_LEFT);
-            } else {
-                $order_number = 'CTB-000001';
+        $lastOrder = Order::orderBy('id', 'desc')->first();
+        if ($lastOrder) {
+            $lastOrderNumber = intval(str_replace('CTB-', '', $lastOrder->order_number));
+            $order_number = 'CTB-' . str_pad($lastOrderNumber + 1, 6, '0', STR_PAD_LEFT);
+        } else {
+            $order_number = 'CTB-000001';
+        }
+
+        $discount = (float) ($validated['discount'] ?? 0);
+
+        $order = DB::transaction(function () use ($validated, $items, $customItems, $userId, $order_number, $discount) {
+            $order = Order::create([
+                'order_number'   => $order_number,
+                'order_type'     => $validated['order_type'],
+                'order_status'   => 'pending',
+                'payment_status' => 'pending',
+                'payment_method' => $validated['payment_method'] ?? null,
+                'user_id'        => $userId,
+                'table_id'       => $validated['table_id'] ?? null,
+                'subtotal'       => 0,
+                'discount'       => $discount,
+                'total_price'    => 0,
+            ]);
+
+            $subtotal = 0;
+
+            foreach ($items as $entry) {
+                $item = Item::findOrFail($entry['id']);
+                $price = $this->itemPriceForOrderType($item, $validated['order_type']);
+                $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
+                $requestedQty = $entry['quantity'];
+                $subtotal += $price * $requestedQty;
+
+                // Serve from Prepared stock first — no kitchen wait for that portion.
+                $consumedQty = $this->consumeFromPrepared($item->id, $requestedQty, $order);
+                $remainingQty = $requestedQty - $consumedQty;
+
+                if ($consumedQty > 0) {
+                    $order->items()->create([
+                        'item_id'          => $item->id,
+                        'item_name'        => $item->name,
+                        'is_custom_item'   => false,
+                        'quantity'         => $consumedQty,
+                        'price'            => $price,
+                        'notes'            => $notes !== '' ? $notes : null,
+                        'orderItem_status' => 'ready',
+                        'source'           => 'prepared',
+                    ]);
+                }
+
+                if ($remainingQty > 0) {
+                    $order->items()->create([
+                        'item_id'          => $item->id,
+                        'item_name'        => $item->name,
+                        'is_custom_item'   => false,
+                        'quantity'         => $remainingQty,
+                        'price'            => $price,
+                        'notes'            => $notes !== '' ? $notes : null,
+                        'orderItem_status' => 'pending',
+                        'source'           => 'new',
+                    ]);
+                }
             }
 
-        $discount   = (float) ($validated['discount'] ?? 0);
-        $totalPrice = max(0, $subtotal - $discount);
+            foreach ($customItems as $entry) {
+                $name = trim((string) $entry['name']);
+                $price = (float) $entry['price'];
+                $quantity = (int) $entry['quantity'];
+                $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
 
-        $order = Order::create([
-            'order_number'   => $order_number,
-            'order_type'     => $validated['order_type'],
-            'order_status'   => 'pending',
-            'payment_status' => 'pending',
-            'payment_method' => $validated['payment_method'] ?? null,
-            'user_id'        => $userId,
-            'table_id'       => $validated['table_id'] ?? null,
-            'subtotal'       => $subtotal,
-            'discount'       => $discount,
-            'total_price'    => $totalPrice,
-        ]);
+                $subtotal += $price * $quantity;
 
-        foreach ($orderItemsData as $itemData) {
-            $order->items()->create($itemData);
-        }
+                $order->items()->create([
+                    'item_id'          => null,
+                    'item_name'        => $name,
+                    'is_custom_item'   => true,
+                    'quantity'         => $quantity,
+                    'price'            => $price,
+                    'notes'            => $notes !== '' ? $notes : null,
+                    'orderItem_status' => 'pending',
+                    'source'           => 'new',
+                ]);
+            }
+
+            $order->update([
+                'subtotal'    => $subtotal,
+                'total_price' => max(0, $subtotal - $order->discount),
+            ]);
+
+            return $order;
+        });
 
         $order->load(['user', 'table', 'items.item']);
         broadcast(new OrderPlaced($order))->toOthers();
 
         return redirect()->route('orders.show', $order)->with('success', 'Order created successfully.');
     }
+
+
 
     public function show(Order $order)
     {
@@ -220,6 +267,97 @@ class OrderController extends Controller
         ]);
     }
 
+    public function removeItem(Request $request, Order $order, OrderItem $orderItem)
+    {
+        if ($orderItem->order_id !== $order->id) {
+            abort(404);
+        }
+
+        $validated = $request->validate([
+            'quantity' => 'nullable|integer|min:1',
+        ]);
+
+        $qtyToRemove = min($validated['quantity'] ?? $orderItem->quantity, $orderItem->quantity);
+
+        // Only items that were actually cooked (preparing/ready) are worth saving —
+        // an item still 'pending' was never made, so there's nothing to hold onto.
+        $eligibleForPrepared = ! $orderItem->is_custom_item
+        && $orderItem->item_id !== null;
+
+        if ($eligibleForPrepared) {
+            $this->saveAsPrepared($orderItem, $qtyToRemove);
+        }
+
+        if ($qtyToRemove >= $orderItem->quantity) {
+            $orderItem->delete();
+        } else {
+            $orderItem->decrement('quantity', $qtyToRemove);
+        }
+
+        $order->load('items');
+        $subtotal = $order->items->sum(fn($oi) => $oi->price * $oi->quantity);
+        $order->update([
+            'subtotal'    => $subtotal,
+            'total_price' => max(0, $subtotal - $order->discount),
+        ]);
+
+        $order->load(['user', 'table', 'items.item']);
+        broadcast(new OrderItemsUpdated($order))->toOthers();
+
+        return redirect()->back()->with('success', $eligibleForPrepared
+            ? 'Item removed and saved as prepared stock.'
+            : 'Item removed.');
+    }
+
+    protected function saveAsPrepared(OrderItem $item, int $qty): void
+    {
+        $prepared = PreparedItem::firstOrNew(['item_id' => $item->item_id]);
+        $prepared->item_name = $item->item_name ?? $item->item?->name ?? 'Unknown Item';
+        $prepared->price = $item->price;
+        $prepared->quantity = ($prepared->quantity ?? 0) + $qty;
+        $prepared->oldest_prepared_at ??= now();
+        $prepared->save();
+
+        PreparedItemLog::create([
+            'item_id'         => $item->item_id,
+            'action'          => 'added',
+            'quantity'        => $qty,
+            'source_order_id' => $item->order_id,
+        ]);
+
+        broadcast(new PreparedStockUpdated($item->item_id, $prepared->quantity))->toOthers();
+    }
+
+    protected function consumeFromPrepared(int $itemId, int $requestedQty, Order $order): int
+    {
+        return DB::transaction(function () use ($itemId, $requestedQty, $order) {
+            $prepared = PreparedItem::where('item_id', $itemId)->lockForUpdate()->first();
+
+            if (! $prepared || $prepared->quantity <= 0) {
+                return 0;
+            }
+
+            $consumed = min($prepared->quantity, $requestedQty);
+            $prepared->quantity -= $consumed;
+
+            if ($prepared->quantity <= 0) {
+                $prepared->delete();
+            } else {
+                $prepared->save();
+            }
+
+            PreparedItemLog::create([
+                'item_id'         => $itemId,
+                'action'          => 'consumed',
+                'quantity'        => $consumed,
+                'target_order_id' => $order->id,
+            ]);
+
+            broadcast(new PreparedStockUpdated($itemId, max(0, $prepared->quantity ?? 0)))->toOthers();
+
+            return $consumed;
+        });
+    }
     public function updateStatus(Request $request, Order $order)
     {
         $request->validate([
@@ -403,9 +541,14 @@ class OrderController extends Controller
             ->orderBy('id')
             ->get();
 
+        $preparedItems = PreparedItem::where('quantity', '>', 0)
+            ->get(['item_id', 'item_name', 'quantity'])
+            ->keyBy('item_id');
+
         return Inertia::render('orders/edit', [
-            'order'      => $order,
-            'categories' => $categories,
+            'order'          => $order,
+            'categories'     => $categories,
+            'preparedStock'  => $preparedItems, // { [item_id]: { quantity, item_name } }
         ]);
     }
 
@@ -436,36 +579,64 @@ class OrderController extends Controller
         foreach ($items as $entry) {
             $item = Item::with('category.counters')->findOrFail($entry['id']);
             $price = $this->itemPriceForOrderType($item, $order->order_type);
+            $requestedQty = $entry['quantity'];
 
-            $existing = $order->items()
-                ->where('item_id', $item->id)
-                ->where('orderItem_status', 'pending')
-                ->first();
+            // Serve from Prepared stock first — no kitchen ticket for that portion.
+            $consumedQty = $this->consumeFromPrepared($item->id, $requestedQty, $order);
+            $remainingQty = $requestedQty - $consumedQty;
 
-            if ($existing) {
-                $existing->increment('quantity', $entry['quantity']);
+            if ($consumedQty > 0) {
+                $existingPrepared = $order->items()
+                    ->where('item_id', $item->id)
+                    ->where('source', 'prepared')
+                    ->first();
 
-                // Represent only the newly added quantity for the kitchen ticket,
-                // not the item's new running total.
-                $ticketLine = (clone $existing)->setRelation('item', $item);
-                $ticketLine->quantity = $entry['quantity'];
-                $newOrderItems->push($ticketLine);
-            } else {
-                $created = $order->items()->create([
-                    'item_id'          => $item->id,
-                    'item_name'        => $item->name,
-                    'is_custom_item'   => false,
-                    'quantity'         => $entry['quantity'],
-                    'price'            => $price,
-                    'orderItem_status' => 'pending',
-                ]);
-                $created->setRelation('item', $item);
-                $newOrderItems->push($created);
+                if ($existingPrepared) {
+                    $existingPrepared->increment('quantity', $consumedQty);
+                } else {
+                    $order->items()->create([
+                        'item_id'          => $item->id,
+                        'item_name'        => $item->name,
+                        'is_custom_item'   => false,
+                        'quantity'         => $consumedQty,
+                        'price'            => $price,
+                        'orderItem_status' => 'ready',
+                        'source'           => 'prepared',
+                    ]);
+                }
+            }
+
+            if ($remainingQty > 0) {
+                $existing = $order->items()
+                    ->where('item_id', $item->id)
+                    ->where('orderItem_status', 'pending')
+                    ->where('source', 'new')
+                    ->first();
+
+                if ($existing) {
+                    $existing->increment('quantity', $remainingQty);
+
+                    $ticketLine = (clone $existing)->setRelation('item', $item);
+                    $ticketLine->quantity = $remainingQty;
+                    $newOrderItems->push($ticketLine);
+                } else {
+                    $created = $order->items()->create([
+                        'item_id'          => $item->id,
+                        'item_name'        => $item->name,
+                        'is_custom_item'   => false,
+                        'quantity'         => $remainingQty,
+                        'price'            => $price,
+                        'orderItem_status' => 'pending',
+                        'source'           => 'new',
+                    ]);
+                    $created->setRelation('item', $item);
+                    $newOrderItems->push($created);
+                }
             }
         }
 
         // One-time / custom items always get their own new line — there's no
-        // catalog item to match against, so nothing to merge with.
+        // catalog item to match or fulfil from Prepared stock against.
         foreach ($customItems as $entry) {
             $name = trim((string) $entry['name']);
             $price = (float) $entry['price'];
@@ -480,8 +651,8 @@ class OrderController extends Controller
                 'price'            => $price,
                 'notes'            => $notes !== '' ? $notes : null,
                 'orderItem_status' => 'pending',
+                'source'           => 'new',
             ]);
-            // No 'item' relation to set — item_id is null for custom items.
             $newOrderItems->push($created);
         }
 
@@ -496,7 +667,6 @@ class OrderController extends Controller
         $order->load(['user', 'table', 'items.item']);
         broadcast(new OrderItemsUpdated($order))->toOthers();
 
-        // Print kitchen/station tickets for just the newly added items
         app(CreatePrintJobsForOrder::class)->createTicketJobs($order, $newOrderItems);
 
         return redirect()->route('orders.show', $order)->with('success', 'Items added to order.');

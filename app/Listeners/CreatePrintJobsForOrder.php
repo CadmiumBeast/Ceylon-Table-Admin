@@ -32,7 +32,8 @@ class CreatePrintJobsForOrder
         $order = $event->order;
         $order->loadMissing(['items.item.category.counters', 'table']);
 
-        $this->createTicketJobs($order, $order->items);
+        $ticketableItems = $order->items->where('source', '!=', 'prepared');
+        $this->createTicketJobs($order, $ticketableItems);
 
         $billCounter = Counter::whereRaw('LOWER(name) = ?', [strtolower($this->billCounterName)])->first();
         if ($billCounter) {

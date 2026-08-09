@@ -1,9 +1,9 @@
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem} from '@/components/ui/sidebar';
 import { type NavItem, type SharedData, type User } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, User as UserIcon, Users, Armchair, SquareStack, ClipboardList, ShoppingBag, ShoppingCart } from 'lucide-react';
+import { LayoutGrid, User as UserIcon, Users, Armchair, SquareStack, ClipboardList, ShoppingBag, ShoppingCart, CircleCheckBig } from 'lucide-react';
 import AppLogo from './app-logo';
 
 type SidebarNavItem = NavItem & {
@@ -18,10 +18,16 @@ const mainNavItems: SidebarNavItem[] = [
         visibleFor: ['admin', 'manager', 'staff'],
     },
     {
-        title: 'Orders',
+        title: 'Open Orders',
         url: '/orders',
         icon: ShoppingBag,
         visibleFor: ['admin','staff'],
+    },
+    {
+        title: 'Completed Orders',
+        url: '/orders/completed',
+        icon: CircleCheckBig,
+        visibleFor: ['admin', 'manager'],
     },
     {
         title: 'Active Carts',
