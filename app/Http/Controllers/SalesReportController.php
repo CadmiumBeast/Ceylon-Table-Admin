@@ -141,6 +141,7 @@ class SalesReportController extends Controller
         $line('Master', number_format($data['Master'] ?? 0, 2));
         $line('Uber', number_format($data['Uber'] ?? 0, 2));
         $line('Pickme', number_format($data['Pickme'] ?? 0, 2));
+        $line('Bank Transfer', number_format($data['Bank_Transfer'] ?? 0, 2));
 
         if (($data['other'] ?? 0) > 0) {
             $line('Other', number_format($data['other'], 2));

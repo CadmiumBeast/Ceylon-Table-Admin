@@ -404,7 +404,7 @@ class OrderController extends Controller
     {
         $request->validate([
             'payment_status' => 'required|in:pending,paid,failed',
-            'payment_method' => 'nullable|string|in:Cash,Visa,Master,Uber,Pickme', // Added validation
+            'payment_method' => 'nullable|string|in:Cash,Visa,Bank_Transfer,Master,Uber,Pickme', // Added validation
         ]);
 
         $order->update([

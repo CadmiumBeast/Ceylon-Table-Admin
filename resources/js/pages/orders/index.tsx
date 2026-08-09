@@ -123,7 +123,7 @@ export default function OrdersIndex({ orders }: Props) {
         );
     };
 
-    const paymentMethods = ['Cash', 'Visa', 'Master', 'Uber', 'Pickme'];
+    const paymentMethods = ['Cash', 'Visa', 'Master', 'Uber', 'Pickme', 'Bank_Transfer']; // Added Bank_Transfer to the list of payment methods
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

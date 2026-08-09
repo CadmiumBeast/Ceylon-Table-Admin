@@ -15,6 +15,7 @@ interface DayEndData {
     Visa: number;
     Master: number;
     Uber: number;
+    Bank_Transfer: number;
     Pickme: number;
     other: number;
     average_order_value: number;
@@ -148,6 +149,7 @@ function DayEndView({ data }: { data: DayEndData }) {
         { label: 'Master', value: money(data.Master) },
         { label: 'Uber', value: money(data.Uber) },
         { label: 'Pickme', value: money(data.Pickme) },
+        { label: 'Bank_Transfer', value: money(data.Bank_Transfer) },
         { label: 'Other', value: money(data.other) },
         { label: 'Avg Order Value', value: money(data.average_order_value) },
     ];

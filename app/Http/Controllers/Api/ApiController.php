@@ -324,7 +324,7 @@ class ApiController extends Controller
             }
 
             if ($payment_method == 'Bank transfer') {
-                $payment_method = 'Bank transfer';
+                $payment_method = 'Bank_Transfer';
             }
 
             if ($payment_method == 'Cash on pick-up') {
@@ -647,7 +647,7 @@ class ApiController extends Controller
             } elseif ($paymentMethod === 'Card') {
                 $paymentMethod = 'Visa'; // Defaulting to Visa for now; adjust as needed
             } elseif ($paymentMethod === 'Bank transfer') {
-                $paymentMethod = 'Bank transfer';
+                $paymentMethod = 'Bank_Transfer';
             } elseif ($paymentMethod === 'Cash on pick-up') {
                 $paymentMethod = 'Cash';
             }

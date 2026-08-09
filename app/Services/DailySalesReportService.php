@@ -32,10 +32,11 @@ class DailySalesReportService
             'Master'              => $methodTotal('master'),
             'Uber'                => $methodTotal('uber'),
             'Pickme'              => $methodTotal('pickme'),
+            'Bank_Transfer'       => $methodTotal('bank_transfer'),
             'other'               => round(
                 $orders->reject(fn ($order) => in_array(
                     strtolower((string) $order->payment_method),
-                    ['cash', 'visa', 'master', 'uber', 'pickme'],
+                    ['cash', 'visa', 'master', 'uber', 'pickme', 'bank_transfer'],
                     true
                 ))->sum('total_price'),
                 2
