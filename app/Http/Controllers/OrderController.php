@@ -40,12 +40,9 @@ class OrderController extends Controller
 
     public function index()
     {
+        //Show only today orders
         $orders = Order::with(['user', 'table', 'items.item'])
-            ->where('order_status', '!=', 'cancelled')
-            ->where(function ($query) {
-                $query->where('order_status', '!=', 'completed')
-                    ->orWhere('payment_status', '!=', 'paid');
-            })
+            ->whereDate('created_at', Carbon::today())
             ->orderByDesc('created_at')
             ->get();
 

@@ -63,6 +63,7 @@ Route::middleware(['auth', 'user-access:admin,manager'])->group(function () {
 });
 Route::middleware(['auth', 'user-access:admin,manager,staff'])->group(function () {
     Route::resource('customers', \App\Http\Controllers\CustomerController::class)->except(['show']);
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
 
 
@@ -70,7 +71,6 @@ Route::middleware(['auth', 'user-access:admin,manager,staff'])->group(function (
 });
 Route::middleware(['auth', 'user-access:admin,staff'])->group(function () {
     Route::get('/juice-bar', [\App\Http\Controllers\OrderController::class, 'juiceBar'])->name('juice-bar.index');
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     // Order routes
     Route::get('/orders', [\App\Http\Controllers\OrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/completed', [\App\Http\Controllers\OrderController::class, 'indexCompleted'])->name('orders.completed');

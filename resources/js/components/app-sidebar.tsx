@@ -24,7 +24,7 @@ const mainNavItems: SidebarNavItem[] = [
         visibleFor: ['admin','staff'],
     },
     {
-        title: 'Completed Orders',
+        title: 'Past Orders',
         url: '/orders/completed',
         icon: CircleCheckBig,
         visibleFor: ['admin', 'manager'],
