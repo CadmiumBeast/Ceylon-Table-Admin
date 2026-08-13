@@ -1,16 +1,11 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEchoPublic } from '@laravel/echo-react';
 import { useState } from 'react';
+import PaymentModal from './payment-modal';
 
 interface OrderItem {
     id: number;
@@ -20,18 +15,32 @@ interface OrderItem {
     orderItem_status: string;
 }
 
+interface PaymentSplit {
+    id: number;
+    payment_method: string;
+    amount: string; // Changed to string based on backend dump ("150.00")
+    amount_tendered: string | null;
+    balance_returned: string | null;
+}
+
 interface Order {
     id: number;
     order_number: string;
     order_type: string;
     order_status: string;
     payment_status: string;
-    payment_method: string | null;
+    payment_method?: string;
     total_price: number;
+    subtotal: number;
+    discount: number;
     created_at: string;
     user: { id: number; name: string } | null;
     table: { id: number; name: string } | null;
     items: OrderItem[];
+
+    // Accept either case depending on Laravel's JSON serialization settings
+    payment_splits?: PaymentSplit[];
+    paymentSplits?: PaymentSplit[];
 }
 
 interface Props {
@@ -60,26 +69,11 @@ export default function OrdersIndex({ orders }: Props) {
     const isAdmin = auth.user.type === 'admin';
     const [processingId, setProcessingId] = useState<number | null>(null);
     const [printingId, setPrintingId] = useState<number | null>(null);
+    const [paymentOrder, setPaymentOrder] = useState<Order | null>(null);
 
     useEchoPublic('orders', ['.order.placed', '.order.status.updated'], () => {
         router.reload({ only: ['orders'] });
     });
-
-    const markPaid = (order: Order, method: string) => {
-        setProcessingId(order.id);
-        router.patch(
-            route('orders.update-payment-status', order.id),
-            {
-                payment_status: 'paid',
-                payment_method: method
-            },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                onFinish: () => setProcessingId(null),
-            }
-        );
-    };
 
     const markCompleted = (order: Order) => {
         setProcessingId(order.id);
@@ -123,8 +117,6 @@ export default function OrdersIndex({ orders }: Props) {
         );
     };
 
-    const paymentMethods = ['Cash', 'Visa', 'Master', 'Uber', 'Pickme', 'Bank_Transfer']; // Added Bank_Transfer to the list of payment methods
-
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Orders" />
@@ -165,10 +157,15 @@ export default function OrdersIndex({ orders }: Props) {
                                 </tr>
                             ) : (
                                 orders.map((order) => {
+                                    // FIXED: Relies on true payment status, and safely checks arrays
                                     const isPaid = order.payment_status === 'paid';
                                     const isCompleted = order.order_status === 'completed';
                                     const isCancelled = order.order_status === 'cancelled';
                                     const isBusy = processingId === order.id;
+
+                                    // Safely consolidate splits for rendering
+                                    const splits = order.payment_splits || order.paymentSplits || [];
+                                    const hasSplits = splits.length > 0;
 
                                     return (
                                         <tr key={order.id} className="border-t">
@@ -187,7 +184,7 @@ export default function OrdersIndex({ orders }: Props) {
                                                 <Badge variant={paymentStatusVariant(order.payment_status)} className="capitalize">
                                                     {order.payment_status}
                                                 </Badge>
-                                                {isPaid && order.payment_method && (
+                                                {isPaid && order.payment_method && !hasSplits && (
                                                     <span className="block text-xs text-muted-foreground mt-1">
                                                         ({order.payment_method})
                                                     </span>
@@ -199,29 +196,25 @@ export default function OrdersIndex({ orders }: Props) {
                                             <td className="px-4 py-3 text-right">
                                                 <div className="flex flex-wrap justify-end gap-2">
 
+                                                    {/* Render multiple payment methods securely */}
+                                                    {isPaid && hasSplits && (
+                                                        <span className="block text-xs text-muted-foreground mt-1 w-full text-right mb-1">
+                                                            {splits
+                                                                .map((s) => `${s.payment_method.replace('_', ' ')} Rs.${Number(s.amount).toFixed(2)}`)
+                                                                .join(' + ')}
+                                                        </span>
+                                                    )}
+
+                                                    {/* FIXED: Added missing "Pay" button to trigger the modal */}
                                                     {!isPaid && !isCancelled && (
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button
-                                                                    variant="secondary"
-                                                                    size="sm"
-                                                                    disabled={isBusy}
-                                                                >
-                                                                    Mark Paid
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                {paymentMethods.map((method) => (
-                                                                    <DropdownMenuItem
-                                                                        key={method}
-                                                                        onClick={() => markPaid(order, method)}
-                                                                        className="cursor-pointer"
-                                                                    >
-                                                                        {method}
-                                                                    </DropdownMenuItem>
-                                                                ))}
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                        <Button
+                                                            variant="secondary"
+                                                            size="sm"
+                                                            disabled={isBusy}
+                                                            onClick={() => setPaymentOrder(order)}
+                                                        >
+                                                            Pay
+                                                        </Button>
                                                     )}
 
                                                     {!isCompleted && !isCancelled && (
@@ -268,6 +261,13 @@ export default function OrdersIndex({ orders }: Props) {
                     </table>
                 </div>
             </div>
+            {paymentOrder && (
+                <PaymentModal
+                    order={paymentOrder}
+                    open={!!paymentOrder}
+                    onOpenChange={(open) => !open && setPaymentOrder(null)}
+                />
+            )}
         </AppLayout>
     );
 }

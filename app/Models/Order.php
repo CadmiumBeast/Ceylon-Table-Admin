@@ -10,7 +10,6 @@ class Order extends Model
         'order_type',
         'order_status',
         'payment_status',
-        'payment_method',
         'order_number',
         'total_price',
         'subtotal',
@@ -41,5 +40,15 @@ class Order extends Model
     public function printJobs()
     {
         return $this->hasMany(PrintJob::class);
+    }
+
+    public function orderTimes()
+    {
+        return $this->hasMany(OrderTime::class);
+    }
+
+    public function paymentSplits()
+    {
+        return $this->hasMany(PaymentSplit::class);
     }
 }

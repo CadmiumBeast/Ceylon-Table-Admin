@@ -41,10 +41,11 @@ class OrderController extends Controller
     public function index()
     {
         //Show only today orders
-        $orders = Order::with(['user', 'table', 'items.item'])
+        $orders = Order::with(['user', 'table', 'items.item', 'paymentSplits'])
             ->whereDate('created_at', Carbon::today())
             ->orderByDesc('created_at')
             ->get();
+
 
         return Inertia::render('orders/index', [
             'orders' => $orders,
@@ -53,7 +54,7 @@ class OrderController extends Controller
 
     public function indexCompleted()
     {
-        $orders = Order::with(['user', 'table', 'items.item'])
+        $orders = Order::with(['user', 'table', 'items.item', 'paymentSplits'])
             ->where('order_status', 'completed')
             ->where('payment_status', 'paid')
             ->orderByDesc('created_at')
@@ -103,7 +104,6 @@ class OrderController extends Controller
             'user_id'        => 'nullable|exists:users,id',
             'customer_name'  => 'nullable|string|max:255',
             'customer_phone' => 'nullable|string|max:20',
-            'payment_method' => 'nullable|string|max:100',
             'discount'       => 'nullable|numeric|min:0',
             'items'          => 'nullable|array',
             'items.*.id'     => 'required|exists:items,id',
@@ -173,7 +173,6 @@ class OrderController extends Controller
                 'order_type'     => $validated['order_type'],
                 'order_status'   => 'pending',
                 'payment_status' => 'pending',
-                'payment_method' => $validated['payment_method'] ?? null,
                 'user_id'        => $userId,
                 'table_id'       => $validated['table_id'] ?? null,
                 'subtotal'       => 0,
@@ -399,21 +398,76 @@ class OrderController extends Controller
         return redirect()->back()->with('success', 'Order cancelled.');
     }
 
-    public function updatePaymentStatus(Request $request, Order $order)
+    public function processPayment(Request $request, Order $order)
     {
-        $request->validate([
-            'payment_status' => 'required|in:pending,paid,failed',
-            'payment_method' => 'nullable|string|in:Cash,Visa,Bank_Transfer,Master,Uber,Pickme', // Added validation
+        $validated = $request->validate([
+            'discount'                    => 'nullable|numeric|min:0',
+            'payments'                    => 'required|array|min:1|max:2',
+            'payments.*.payment_method'   => 'required|in:Cash,Visa,Master,Uber,Pickme,Bank_Transfer',
+            'payments.*.amount'           => 'required|numeric|min:0',
+            'payments.*.amount_tendered'  => 'nullable|numeric|min:0',
         ]);
 
-        $order->update([
-            'payment_status' => $request->payment_status,
-            'payment_method' => $request->payment_method ?? $order->payment_method, // Save method if provided
-        ]);
+        $payments = $validated['payments'];
+        $discount = (float) ($validated['discount'] ?? $order->discount ?? 0);
+        $expectedTotal = round(max(0, (float) $order->subtotal - $discount), 2);
+        $sum = round(collect($payments)->sum(fn ($p) => (float) $p['amount']), 2);
 
+
+
+        $tendered = null;
+        $balance = null;
+
+        if (count($payments) === 1) {
+            $only = $payments[0];
+
+            if ($only['payment_method'] === 'Cash') {
+                $tendered = (float) ($only['amount_tendered'] ?? $only['amount']);
+
+                if ($tendered < $expectedTotal) {
+                    throw ValidationException::withMessages([
+                        'payments' => 'Amount tendered is less than the total due (Rs. ' . number_format($expectedTotal, 2) . ').',
+                    ]);
+                }
+
+                $balance = round($tendered - $expectedTotal, 2);
+            } elseif (abs($sum - $expectedTotal) > 0.01) {
+                throw ValidationException::withMessages([
+                    'payments' => 'Payment amount must equal the order total (Rs. ' . number_format($expectedTotal, 2) . ').',
+                ]);
+            }
+        } elseif (abs($sum - $expectedTotal) > 0.01) {
+            throw ValidationException::withMessages([
+                'payments' => 'Split payment amounts must add up to the order total (Rs. ' . number_format($expectedTotal, 2) . ').',
+            ]);
+        }
+
+        DB::transaction(function () use ($order, $payments, $discount, $expectedTotal, $tendered, $balance) {
+            $order->paymentSplits()->delete();
+
+            foreach ($payments as $index => $p) {
+                $isSingleCash = count($payments) === 1 && $index === 0 && $p['payment_method'] === 'Cash';
+
+                $order->paymentSplits()->create([
+                    'payment_method'   => $p['payment_method'],
+                    'amount'           => $p['amount'],
+                    'amount_tendered'  => $isSingleCash ? $tendered : null,
+                    'balance_returned' => $isSingleCash ? $balance : null,
+                ]);
+            }
+
+            $order->update([
+                'discount'       => $discount,
+                'total_price'    => $expectedTotal,
+                'payment_status' => 'paid',
+                // 'payment_method' => count($payments) === 1 ? $payments[0]['payment_method'] : 'Split',
+            ]);
+        });
+
+        $order->load(['user.customer', 'table', 'items.item', 'paymentSplits']);
         broadcast(new OrderStatusUpdated($order))->toOthers();
 
-        return redirect()->back()->with('success', 'Payment status updated.');
+        return redirect()->back()->with('success', 'Payment recorded.');
     }
 
     public function updateItemStatus(Request $request, Order $order, OrderItem $orderItem)
@@ -521,7 +575,9 @@ class OrderController extends Controller
                     // Ensure totals are formatted properly for the printer
                     'sub_total'    => number_format((float) $order->total_price, 2, '.', ''),
                     'total_price'  => number_format((float) $order->total_price, 2, '.', ''),
-                    'payment_method' => $order->payment_method ?? 'CASH', // Add this if available on your model
+                    'payment_method' => $order->paymentSplits->isNotEmpty()
+                        ? $order->paymentSplits->pluck('payment_method')->implode(' + ')
+                        : 'CASH',
                 ],
                 'status' => 'pending',
             ]);
