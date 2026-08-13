@@ -155,7 +155,9 @@ class OrderController extends Controller
             }
         }
 
-        $lastOrder = Order::orderBy('id', 'desc')->first();
+        $lastOrder = Order::orderBy('id', 'desc')
+        ->where('created_at', '>=', now()->startOfDay())
+        ->first();
         if ($lastOrder) {
             $lastOrderNumber = intval(str_replace('CTB-', '', $lastOrder->order_number));
             $order_number = 'CTB-' . str_pad($lastOrderNumber + 1, 6, '0', STR_PAD_LEFT);
