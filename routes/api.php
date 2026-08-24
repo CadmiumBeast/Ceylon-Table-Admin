@@ -44,6 +44,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/customer/orders/{orderId}/rate', [ApiController::class, 'ratePastOrder']);
 
     Route::get('/promotions', [PromotionController::class, 'getActivePromotions']);
+    Route::get('/rewards', [ApiController::class, 'getRewards']);
 
     // Chef
     Route::get('/chef/dashboard', [ApiController::class, 'getDashboardData']);

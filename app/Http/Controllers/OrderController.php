@@ -30,6 +30,7 @@ use Mike42\Escpos\Printer;
 use App\Events\OrderItemsUpdated;
 use App\Events\PrintJobDispatched;
 use App\Listeners\CreatePrintJobsForOrder;
+use App\Services\RewardService;
 
 class OrderController extends Controller
 {
@@ -462,6 +463,8 @@ class OrderController extends Controller
                 'payment_status' => 'paid',
                 // 'payment_method' => count($payments) === 1 ? $payments[0]['payment_method'] : 'Split',
             ]);
+
+            app(RewardService::class)->awardPoints($order);
         });
 
         $order->load(['user.customer', 'table', 'items.item', 'paymentSplits']);

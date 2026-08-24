@@ -31,6 +31,7 @@ class CustomerController extends Controller
                     'phone_number' => $user->customer->phone_number,
                     'address' => $user->customer->address,
                     'date_of_birth' => $user->customer->date_of_birth,
+                    'loyalty_points' => $user->customer->loyalty_points,
                 ] : null,
             ]);
 

@@ -9,6 +9,7 @@ interface CustomerProfile {
     phone_number: string;
     address: string | null;
     date_of_birth: string | null;
+    loyalty_points: number;
 }
 
 interface Customer {
@@ -49,6 +50,7 @@ export default function CustomersIndex({ customers }: CustomersIndexProps) {
                                 <th className="px-4 py-3 font-medium">Phone</th>
                                 <th className="px-4 py-3 font-medium">Address</th>
                                 <th className="px-4 py-3 font-medium">Joined</th>
+                                <th className="px-4 py-3 font-medium">Loyalty Points</th>
                                 <th className="px-4 py-3 font-medium text-right">Actions</th>
                             </tr>
                         </thead>
@@ -71,6 +73,7 @@ export default function CustomersIndex({ customers }: CustomersIndexProps) {
                                         <td className="px-4 py-3">{c.customer?.phone_number ?? '—'}</td>
                                         <td className="px-4 py-3 max-w-[200px] truncate">{c.customer?.address ?? '—'}</td>
                                         <td className="px-4 py-3">{new Date(c.created_at).toLocaleDateString()}</td>
+                                        <td className="px-4 py-3">{c.customer?.loyalty_points ?? 0}</td>
                                         <td className="px-4 py-3 text-right">
                                             <Button variant="outline" size="sm" asChild>
                                                 <Link href={route('customers.edit', c.id)}>Edit</Link>

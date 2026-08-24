@@ -14,6 +14,7 @@ use App\Models\Table;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use App\Services\RewardService;
 
 
 
@@ -1026,5 +1027,14 @@ class ApiController extends Controller
         }
     }
 
+    public function getRewards(Request $request)
+    {
+        $customer = $request->user()->customer;
+        return response()->json([
+            'points' => $customer->loyalty_points ?? 0,
+            'rs_value' => null, // fill in if points are redeemable for cash value
+            'is_birthday_today' => app(RewardService::class)->isBirthdayToday($customer),
+        ]);
+    }
 
 }
