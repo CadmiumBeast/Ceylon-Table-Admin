@@ -1030,10 +1030,30 @@ class ApiController extends Controller
     public function getRewards(Request $request)
     {
         $customer = $request->user()->customer;
+
+        if (!$customer) {
+            return response()->json(['error' => 'No customer profile found'], 404);
+        }
+
+        $orders = Order::where('user_id', $request->user()->id)
+            ->where('payment_status', 'paid')
+            ->orderByDesc('created_at')
+            ->get(['id', 'order_number', 'total_price', 'created_at']);
+
+        $transactions = $orders->map(function ($order) {
+            return [
+                'id'           => $order->id,
+                'description'  => 'Earned for Order',
+                'order_number' => $order->order_number,
+                'points'       => (int) floor($order->total_price / 100),
+                'created_at'   => $order->created_at->toDateString(),
+            ];
+        })->values();
+
         return response()->json([
-            'points' => $customer->loyalty_points ?? 0,
-            'rs_value' => null, // fill in if points are redeemable for cash value
+            'points'            => $customer->loyalty_points ?? 0,
             'is_birthday_today' => app(RewardService::class)->isBirthdayToday($customer),
+            'transactions'      => $transactions,
         ]);
     }
 
