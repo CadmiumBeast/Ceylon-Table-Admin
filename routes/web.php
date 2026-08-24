@@ -60,6 +60,9 @@ Route::middleware(['auth', 'user-access:admin,manager'])->group(function () {
     Route::get('/reports/sales/data', [SalesReportController::class, 'data'])->name('reports.sales.data');
     Route::post('/reports/sales/print', [SalesReportController::class, 'print'])->name('reports.sales.print');
 
+    // Promotion routes
+    Route::resource('promotions', \App\Http\Controllers\PromotionController::class)->except(['show']);
+
 });
 Route::middleware(['auth', 'user-access:admin,manager,staff'])->group(function () {
     Route::resource('customers', \App\Http\Controllers\CustomerController::class)->except(['show']);

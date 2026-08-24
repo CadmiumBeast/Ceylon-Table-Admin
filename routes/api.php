@@ -5,6 +5,7 @@ use App\Http\Controllers\PrintJobController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ApiController;
+use App\Http\Controllers\PromotionController;
 
 
 Route::post('/signup', [AuthController::class, 'signup']);
@@ -42,12 +43,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/customer/orders/{orderId}/repeat', [ApiController::class, 'repeatPastOrder']);
     Route::post('/customer/orders/{orderId}/rate', [ApiController::class, 'ratePastOrder']);
 
+    Route::get('/promotions', [PromotionController::class, 'getActivePromotions']);
+
     // Chef
     Route::get('/chef/dashboard', [ApiController::class, 'getDashboardData']);
     Route::get('/chef/weekly-stats', [ApiController::class, 'getWeeklyStats']);
     Route::post('/chef/item/{orderitemId}/status', [ApiController::class, 'updateItemStatus']);
     Route::get('/staff/ready-items', [ApiController::class, 'getReadyItems']);
     Route::post('/staff/item/{orderItemId}/serve', [ApiController::class, 'markItemAsServed']);
+
+
 
 
 
