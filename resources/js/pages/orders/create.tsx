@@ -89,6 +89,8 @@ const ORDER_TYPES = [
     { value: 'dine_in', label: 'Dine In' },
     { value: 'takeaway', label: 'Takeaway' },
     { value: 'delivery', label: 'Delivery' },
+    { value: 'uber', label: 'Uber Eats' },
+    { value: 'pickme', label: 'PickMe' },
 ] as const;
 
 const PAYMENT_METHODS = ['cash', 'card', 'online'] as const;
@@ -130,8 +132,12 @@ export default function CreateOrder({ categories, tables, customers, preparedSto
         : [];
 
     const selectedCat = categories.find((c) => c.id === selectedCatId) ?? null;
-    const getItemPrice = (item: Item) =>
-        orderType === 'takeaway' && item.takeaway_price !== null ? Number(item.takeaway_price) : Number(item.price);
+    const getItemPrice = (item: Item) => {
+       const usesTakeawayBase =
+           ['takeaway', 'uber', 'pickme'].includes(orderType) && item.takeaway_price !== null;
+       const base = usesTakeawayBase ? Number(item.takeaway_price) : Number(item.price);
+       return ['uber', 'pickme'].includes(orderType) ? base * 0.7 : base;
+    };
     const allItems: SearchItem[] = categories.flatMap((category) =>
         category.items.map((item) => ({
             ...item,

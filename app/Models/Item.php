@@ -31,11 +31,16 @@ class Item extends Model
 
     public function priceForOrderType(string $orderType): float
     {
-        if ($orderType === 'takeaway' && $this->takeaway_price !== null) {
-            return (float) $this->takeaway_price;
+        $usesTakeawayBase = in_array($orderType, ['takeaway', 'uber', 'pickme'], true)
+            && $this->takeaway_price !== null;
+
+        $price = $usesTakeawayBase ? (float) $this->takeaway_price : (float) $this->price;
+
+        if (in_array($orderType, ['uber', 'pickme'], true)) {
+            $price *= 0.7; // 30% off for delivery-aggregator orders (commission offset)
         }
 
-        return (float) $this->price;
+        return round($price, 2);
     }
 
 

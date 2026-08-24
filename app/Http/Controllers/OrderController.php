@@ -100,7 +100,7 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'order_type'     => 'required|in:dine_in,takeaway,delivery',
+            'order_type'     => 'required|in:dine_in,takeaway,delivery,uber,pickme',
             'table_id'       => 'nullable|exists:tables,id',
             'user_id'        => 'nullable|exists:users,id',
             'customer_name'  => 'nullable|string|max:255',
@@ -479,6 +479,8 @@ class OrderController extends Controller
             'orderItem_status' => 'required|in:pending,preparing,ready,served,cancelled',
         ]);
 
+        $previousStatus = $orderItem->orderItem_status;
+
         $orderItem->update(['orderItem_status' => $request->orderItem_status]);
 
         $orderTime = OrderTime::firstOrNew(['order_id' => $order->id, 'item_id' => $orderItem->item_id]);
@@ -490,6 +492,13 @@ class OrderController extends Controller
         $orderTime->save();
 
         broadcast(new OrderItemStatusUpdated($orderItem))->toOthers();
+
+        // Print a cancellation notice only on the transition INTO cancelled —
+        // avoids reprinting if something re-saves the same status.
+        if ($request->orderItem_status === 'cancelled' && $previousStatus !== 'cancelled') {
+            $order->loadMissing('table');
+            app(CreatePrintJobsForOrder::class)->createCancellationTickets($order, collect([$orderItem]));
+        }
 
         return redirect()->back()->with('success', 'Item status updated.');
     }
