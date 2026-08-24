@@ -622,6 +622,261 @@ class OrderController extends Controller
         ]);
     }
 
+    public function Orderedit(Order $order)
+    {
+        // Load paymentSplits to populate the current payment method in React
+        $order->load(['user.customer', 'table', 'items.item', 'paymentSplits']);
+
+        $categories = Category::with(['items' => fn($q) => $q->where('is_active', true)->orderBy('name')])
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $tables = Table::where('is_active', true)->orderBy('name')->get();
+
+        $customers = User::where('type', 'customer')
+            ->with('customer')
+            ->orderBy('name')
+            ->get()
+            ->map(fn($u) => [
+                'id'    => $u->id,
+                'name'  => $u->name,
+                'phone' => $u->customer?->phone_number,
+            ]);
+
+        $preparedItems = PreparedItem::where('quantity', '>', 0)
+            ->get(['item_id', 'item_name', 'quantity'])
+            ->keyBy('item_id');
+
+        return Inertia::render('orders/adminedit', [
+            'order'          => $order,
+            'categories'     => $categories,
+            'tables'         => $tables,
+            'customers'      => $customers,
+            'preparedStock'  => $preparedItems,
+        ]);
+    }
+
+    public function update(Request $request, Order $order)
+    {
+        if ($order->order_status === 'cancelled') {
+            abort(422, 'Cancelled orders cannot be edited.');
+        }
+
+        $validated = $request->validate([
+            'order_type'     => 'required|in:dine_in,takeaway,delivery,uber,pickme',
+            'payment_status' => 'required|in:pending,paid',
+            'payment_method' => 'nullable|in:Cash,Visa,Master,Uber,Pickme,Bank_Transfer',
+            'table_id'       => 'nullable|exists:tables,id',
+            'user_id'        => 'nullable|exists:users,id',
+            'customer_name'  => 'nullable|string|max:255',
+            'customer_phone' => 'nullable|string|max:20',
+            'discount'       => 'nullable|numeric|min:0',
+
+            'existing_items'             => 'nullable|array',
+            'existing_items.*.id'        => 'required|exists:order_items,id',
+            'existing_items.*.quantity'  => 'required|integer|min:0',
+            'existing_items.*.notes'     => 'nullable|string|max:1000',
+            'existing_items.*.name'      => 'nullable|string|max:255',
+            'existing_items.*.price'     => 'nullable|numeric|min:0',
+
+            'new_items'                  => 'nullable|array',
+            'new_items.*.id'             => 'required|exists:items,id',
+            'new_items.*.quantity'       => 'required|integer|min:1',
+            'new_items.*.notes'          => 'nullable|string|max:1000',
+
+            'new_custom_items'               => 'nullable|array',
+            'new_custom_items.*.name'        => 'required|string|max:255',
+            'new_custom_items.*.price'       => 'required|numeric|min:0',
+            'new_custom_items.*.quantity'    => 'required|integer|min:1',
+            'new_custom_items.*.notes'       => 'nullable|string|max:1000',
+        ]);
+
+        if ($validated['order_type'] !== 'dine_in') {
+            $validated['table_id'] = null;
+        } elseif (empty($validated['table_id'])) {
+            throw ValidationException::withMessages([
+                'table_id' => 'Please select a table for a dine-in order.',
+            ]);
+        }
+
+        $userId = $validated['user_id'] ?? $order->user_id;
+
+        // "Find or create guest customer" logic
+        if (! $userId && ! empty($validated['customer_name']) && ! empty($validated['customer_phone'])) {
+            $existingCustomer = Customer::where('phone_number', $validated['customer_phone'])->first();
+
+            if ($existingCustomer) {
+                $userId = $existingCustomer->user_id;
+            } else {
+                $newUser = DB::transaction(function () use ($validated) {
+                    $user = User::create([
+                        'name'     => $validated['customer_name'],
+                        'email'    => 'guest_' . Str::random(10) . '@ceylontable.lk',
+                        'password' => Str::random(20),
+                        'type'     => 'customer',
+                    ]);
+
+                    Customer::create([
+                        'user_id'      => $user->id,
+                        'first_name'   => $validated['customer_name'],
+                        'last_name'    => '',
+                        'phone_number' => $validated['customer_phone'],
+                    ]);
+
+                    return $user;
+                });
+
+                $userId = $newUser->id;
+            }
+        }
+
+        $newOrderItems = collect();
+
+        DB::transaction(function () use ($validated, $order, $userId, &$newOrderItems) {
+            $orderTypeChanged = $validated['order_type'] !== $order->order_type;
+
+            $order->update([
+                'order_type'     => $validated['order_type'],
+                'payment_status' => $validated['payment_status'], // Add updated payment status
+                'table_id'       => $validated['table_id'] ?? null,
+                'user_id'        => $userId,
+                'discount'       => (float) ($validated['discount'] ?? $order->discount),
+            ]);
+
+            // --- Existing items: update quantity/notes, or delete if quantity is 0 ---
+            foreach ($validated['existing_items'] ?? [] as $entry) {
+                $orderItem = OrderItem::where('id', $entry['id'])->where('order_id', $order->id)->first();
+                if (! $orderItem) {
+                    continue;
+                }
+
+                $qty = (int) $entry['quantity'];
+
+                if ($qty <= 0) {
+                    // Only cooked, catalog items are worth saving.
+                    $eligibleForPrepared = ! $orderItem->is_custom_item && $orderItem->item_id !== null;
+                    if ($eligibleForPrepared) {
+                        $this->saveAsPrepared($orderItem, $orderItem->quantity);
+                    }
+                    $orderItem->delete();
+                    continue;
+                }
+
+                $updates = [
+                    'quantity' => $qty,
+                    'notes'    => isset($entry['notes']) && trim((string) $entry['notes']) !== ''
+                        ? trim($entry['notes'])
+                        : null,
+                ];
+
+                if ($orderItem->is_custom_item) {
+                    // One-time items: name and price can be edited directly.
+                    if (isset($entry['name']) && trim((string) $entry['name']) !== '') {
+                        $updates['item_name'] = trim($entry['name']);
+                    }
+                    if (isset($entry['price'])) {
+                        $updates['price'] = (float) $entry['price'];
+                    }
+                } elseif ($orderTypeChanged && $orderItem->item) {
+                    // Catalog items: re-price if the order type (and therefore
+                    // takeaway/aggregator pricing) changed.
+                    $updates['price'] = $this->itemPriceForOrderType($orderItem->item, $validated['order_type']);
+                }
+
+                $orderItem->update($updates);
+            }
+
+            // --- New catalog items (reuses Prepared-stock consumption) ---
+            foreach ($validated['new_items'] ?? [] as $entry) {
+                $item = Item::findOrFail($entry['id']);
+                $price = $this->itemPriceForOrderType($item, $validated['order_type']);
+                $requestedQty = $entry['quantity'];
+                $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
+
+                $consumedQty = $this->consumeFromPrepared($item->id, $requestedQty, $order);
+                $remainingQty = $requestedQty - $consumedQty;
+
+                if ($consumedQty > 0) {
+                    $order->items()->create([
+                        'item_id'          => $item->id,
+                        'item_name'        => $item->name,
+                        'is_custom_item'   => false,
+                        'quantity'         => $consumedQty,
+                        'price'            => $price,
+                        'notes'            => $notes !== '' ? $notes : null,
+                        'orderItem_status' => 'ready',
+                        'source'           => 'prepared',
+                    ]);
+                }
+
+                if ($remainingQty > 0) {
+                    $created = $order->items()->create([
+                        'item_id'          => $item->id,
+                        'item_name'        => $item->name,
+                        'is_custom_item'   => false,
+                        'quantity'         => $remainingQty,
+                        'price'            => $price,
+                        'notes'            => $notes !== '' ? $notes : null,
+                        'orderItem_status' => 'pending',
+                        'source'           => 'new',
+                    ]);
+                    $created->setRelation('item', $item);
+                    $newOrderItems->push($created);
+                }
+            }
+
+            // --- New one-time items ---
+            foreach ($validated['new_custom_items'] ?? [] as $entry) {
+                $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
+
+                $created = $order->items()->create([
+                    'item_id'          => null,
+                    'item_name'        => trim($entry['name']),
+                    'is_custom_item'   => true,
+                    'quantity'         => (int) $entry['quantity'],
+                    'price'            => (float) $entry['price'],
+                    'notes'            => $notes !== '' ? $notes : null,
+                    'orderItem_status' => 'pending',
+                    'source'           => 'new',
+                ]);
+                $newOrderItems->push($created);
+            }
+
+            $order->load('items');
+            $subtotal = $order->items->sum(fn($oi) => $oi->price * $oi->quantity);
+            $totalPrice = max(0, $subtotal - $order->discount);
+
+            $order->update([
+                'subtotal'    => $subtotal,
+                'total_price' => $totalPrice,
+            ]);
+
+            // --- Sync Payment Splits ---
+            // If the order was just marked as paid (or is staying paid), we sync a single split.
+            // If there's an actual split required, the normal POS checkout flow is preferred.
+            // For admin edit purposes, we will override with the selected master payment method.
+            if ($validated['payment_status'] === 'paid' && !empty($validated['payment_method'])) {
+                $order->paymentSplits()->delete();
+                $order->paymentSplits()->create([
+                    'payment_method' => $validated['payment_method'],
+                    'amount'         => $totalPrice,
+                ]);
+            } elseif ($validated['payment_status'] === 'pending') {
+                $order->paymentSplits()->delete();
+            }
+        });
+
+        $order->load(['user.customer', 'table', 'items.item']);
+        broadcast(new OrderItemsUpdated($order))->toOthers();
+
+        if ($newOrderItems->isNotEmpty()) {
+            app(CreatePrintJobsForOrder::class)->createTicketJobs($order, $newOrderItems);
+        }
+
+        return redirect()->route('orders.show', $order)->with('success', 'Order updated.');
+    }
+
     public function addItems(Request $request, Order $order)
     {
         $validated = $request->validate([

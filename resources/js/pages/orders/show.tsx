@@ -217,6 +217,12 @@ export default function OrderShow({ order }: Props) {
                                 <Link href={route('orders.edit', order.id)}>Add Items</Link>
                             </Button>
                         )}
+
+                        {isAdmin && (
+                            <Button variant="outline" asChild>
+                                <Link href={route('orders.adminedit', order.id)}>Edit Order</Link>
+                            </Button>
+                        )}
                         <Button variant="outline" asChild>
                             <Link href={route('orders.index')}>Back to Orders</Link>
                         </Button>

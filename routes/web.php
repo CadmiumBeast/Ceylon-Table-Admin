@@ -27,8 +27,8 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::post('categories/{id}/disable', [\App\Http\Controllers\CategoryController::class, 'disable'])->name('categories.disable');
     Route::post('categories/{id}/enable', [\App\Http\Controllers\CategoryController::class, 'enable'])->name('categories.enable');
 
-
-
+    Route::put('/orders/{order}', [\App\Http\Controllers\OrderController::class, 'update'])->name('orders.update');
+    Route::get('/orders/{order}/adminedit', [\App\Http\Controllers\OrderController::class, 'Orderedit'])->name('orders.adminedit');
 
 });
 

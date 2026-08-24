@@ -228,6 +228,8 @@ export default function OrdersIndex({ orders }: Props) {
                                                         </Button>
                                                     )}
 
+                                                    
+
                                                     {isAdmin && !isCompleted && !isCancelled && (
                                                         <Button
                                                             variant="destructive"
