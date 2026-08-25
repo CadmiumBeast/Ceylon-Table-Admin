@@ -177,7 +177,7 @@ export default function OrderShow({ order }: Props) {
     };
 
     const removeItem = (orderItem: OrderItem) => {
-        if (!confirm(`Remove ${orderItem.item_name ?? orderItem.item?.name ?? 'this item'}? If it's already prepared, it'll be saved for reuse on another order.`)) return;
+        if (!confirm(`Remove ${orderItem.item_name ?? orderItem.item?.name ?? 'this item'}? `)) return;
 
         setRemovingId(orderItem.id);
         router.delete(route('orders.remove-item', { order: order.id, orderItem: orderItem.id }), {
@@ -212,17 +212,17 @@ export default function OrderShow({ order }: Props) {
                                 Cancel
                             </Button>
                         )}
-                        {!['completed', 'cancelled'].includes(order.order_status) && (
-                            <Button variant="outline" asChild>
-                                <Link href={route('orders.edit', order.id)}>Add Items</Link>
-                            </Button>
-                        )}
 
-                        {isAdmin && (
                             <Button variant="outline" asChild>
-                                <Link href={route('orders.adminedit', order.id)}>Edit Order</Link>
+                                <Link href={route('orders.edit', order.id)}>Edit Order</Link>
                             </Button>
-                        )}
+                       
+
+                        {/* {isAdmin && (
+                            <Button variant="outline" asChild>
+                                <Link href={route('orders.adminedit', order.id)}>Admin Edit Order</Link>
+                            </Button>
+                        )} */}
                         <Button variant="outline" asChild>
                             <Link href={route('orders.index')}>Back to Orders</Link>
                         </Button>

@@ -58,16 +58,12 @@ interface CustomCartEntry {
     quantity: number;
     notes: string | null;
 }
-interface PreparedStockEntry {
-    quantity: number;
-    item_name: string;
-}
+
 
 interface Props {
     categories: Category[];
     tables: TableRow[];
     customers: Customer[];
-    preparedStock: Record<number, PreparedStockEntry>; // NEW
 }
 
 type NoteTarget =
@@ -97,7 +93,7 @@ const PAYMENT_METHODS = ['cash', 'card', 'online'] as const;
 
 type Step = 1 | 2 | 3;
 
-export default function CreateOrder({ categories, tables, customers, preparedStock }: Props) {
+export default function CreateOrder({ categories, tables, customers }: Props) {
     const [step, setStep] = useState<Step>(1);
 
     // Step 1
@@ -480,11 +476,7 @@ export default function CreateOrder({ categories, tables, customers, preparedSto
                                                         <p className="mt-1 text-xs text-muted-foreground">
                                                             Rs. {getItemPrice(item).toFixed(2)}
                                                         </p>
-                                                        {preparedStock[item.id] && (
-                                                            <Badge variant="secondary" className="mt-1 text-xs">
-                                                                {preparedStock[item.id].quantity} ready — no wait
-                                                            </Badge>
-                                                        )}
+
                                                         {inCart && (
                                                             <Badge className="mt-2 text-xs" variant="secondary">
                                                                 {inCart.quantity} selected
@@ -526,11 +518,7 @@ export default function CreateOrder({ categories, tables, customers, preparedSto
                                                             <p className="mt-1 text-xs text-muted-foreground">
                                                                 Rs. {getItemPrice(item).toFixed(2)}
                                                             </p>
-                                                            {preparedStock[item.id] && (
-                                                                <Badge variant="secondary" className="mt-1 text-xs">
-                                                                    {preparedStock[item.id].quantity} ready — no wait
-                                                                </Badge>
-                                                            )}
+                                                            
                                                             {inCart && (
                                                                 <Badge className="mt-2 text-xs" variant="secondary">
                                                                     {inCart.quantity} selected

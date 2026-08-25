@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Events\OrderItemStatusUpdated;
 use App\Events\OrderPlaced;
 use App\Events\OrderStatusUpdated;
-use App\Events\PreparedStockUpdated;
 use App\Events\PrintJobCreated;
 use App\Models\Category;
 use App\Models\Counter;
@@ -14,13 +13,12 @@ use App\Models\Item;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderTime;
-use App\Models\PreparedItem;
-use App\Models\PreparedItemLog;
 use App\Models\PrintJob;
 use App\Models\Table;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -39,14 +37,30 @@ class OrderController extends Controller
         return $item->priceForOrderType($orderType);
     }
 
+    /**
+     * Recompute subtotal/total from the order's current items.
+     * Cancelled lines never count toward the total.
+     */
+    private function recalcTotals(Order $order): void
+    {
+        $order->load('items');
+
+        $subtotal = $order->items
+            ->where('orderItem_status', '!=', 'cancelled')
+            ->sum(fn ($oi) => (float) $oi->price * $oi->quantity);
+
+        $order->update([
+            'subtotal'    => $subtotal,
+            'total_price' => max(0, $subtotal - (float) $order->discount),
+        ]);
+    }
+
     public function index()
     {
-        //Show only today orders
         $orders = Order::with(['user', 'table', 'items.item', 'paymentSplits'])
             ->whereDate('created_at', Carbon::today())
             ->orderByDesc('created_at')
             ->get();
-
 
         return Inertia::render('orders/index', [
             'orders' => $orders,
@@ -85,15 +99,10 @@ class OrderController extends Controller
                 'phone' => $u->customer?->phone_number,
             ]);
 
-        $preparedStock = PreparedItem::where('quantity', '>', 0)
-            ->get(['item_id', 'item_name', 'quantity'])
-            ->keyBy('item_id');
-
         return Inertia::render('orders/create', [
-            'categories'    => $categories,
-            'tables'        => $tables,
-            'customers'     => $customers,
-            'preparedStock' => $preparedStock,
+            'categories' => $categories,
+            'tables'     => $tables,
+            'customers'  => $customers,
         ]);
     }
 
@@ -157,8 +166,9 @@ class OrderController extends Controller
         }
 
         $lastOrder = Order::orderBy('id', 'desc')
-        ->where('created_at', '>=', now()->startOfDay())
-        ->first();
+            ->where('created_at', '>=', now()->startOfDay())
+            ->first();
+
         if ($lastOrder) {
             $lastOrderNumber = intval(str_replace('CTB-', '', $lastOrder->order_number));
             $order_number = 'CTB-' . str_pad($lastOrderNumber + 1, 6, '0', STR_PAD_LEFT);
@@ -181,59 +191,16 @@ class OrderController extends Controller
                 'total_price'    => 0,
             ]);
 
-            $subtotal = 0;
-
             foreach ($items as $entry) {
                 $item = Item::findOrFail($entry['id']);
                 $price = $this->itemPriceForOrderType($item, $validated['order_type']);
                 $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
-                $requestedQty = $entry['quantity'];
-                $subtotal += $price * $requestedQty;
-
-                // Serve from Prepared stock first — no kitchen wait for that portion.
-                $consumedQty = $this->consumeFromPrepared($item->id, $requestedQty, $order);
-                $remainingQty = $requestedQty - $consumedQty;
-
-                if ($consumedQty > 0) {
-                    $order->items()->create([
-                        'item_id'          => $item->id,
-                        'item_name'        => $item->name,
-                        'is_custom_item'   => false,
-                        'quantity'         => $consumedQty,
-                        'price'            => $price,
-                        'notes'            => $notes !== '' ? $notes : null,
-                        'orderItem_status' => 'ready',
-                        'source'           => 'prepared',
-                    ]);
-                }
-
-                if ($remainingQty > 0) {
-                    $order->items()->create([
-                        'item_id'          => $item->id,
-                        'item_name'        => $item->name,
-                        'is_custom_item'   => false,
-                        'quantity'         => $remainingQty,
-                        'price'            => $price,
-                        'notes'            => $notes !== '' ? $notes : null,
-                        'orderItem_status' => 'pending',
-                        'source'           => 'new',
-                    ]);
-                }
-            }
-
-            foreach ($customItems as $entry) {
-                $name = trim((string) $entry['name']);
-                $price = (float) $entry['price'];
-                $quantity = (int) $entry['quantity'];
-                $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
-
-                $subtotal += $price * $quantity;
 
                 $order->items()->create([
-                    'item_id'          => null,
-                    'item_name'        => $name,
-                    'is_custom_item'   => true,
-                    'quantity'         => $quantity,
+                    'item_id'          => $item->id,
+                    'item_name'        => $item->name,
+                    'is_custom_item'   => false,
+                    'quantity'         => $entry['quantity'],
                     'price'            => $price,
                     'notes'            => $notes !== '' ? $notes : null,
                     'orderItem_status' => 'pending',
@@ -241,10 +208,22 @@ class OrderController extends Controller
                 ]);
             }
 
-            $order->update([
-                'subtotal'    => $subtotal,
-                'total_price' => max(0, $subtotal - $order->discount),
-            ]);
+            foreach ($customItems as $entry) {
+                $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
+
+                $order->items()->create([
+                    'item_id'          => null,
+                    'item_name'        => trim((string) $entry['name']),
+                    'is_custom_item'   => true,
+                    'quantity'         => (int) $entry['quantity'],
+                    'price'            => (float) $entry['price'],
+                    'notes'            => $notes !== '' ? $notes : null,
+                    'orderItem_status' => 'pending',
+                    'source'           => 'new',
+                ]);
+            }
+
+            $this->recalcTotals($order);
 
             return $order;
         });
@@ -255,8 +234,6 @@ class OrderController extends Controller
         return redirect()->route('orders.show', $order)->with('success', 'Order created successfully.');
     }
 
-
-
     public function show(Order $order)
     {
         $order->load(['user.customer', 'table', 'items.item']);
@@ -266,97 +243,56 @@ class OrderController extends Controller
         ]);
     }
 
+    /**
+     * Cancel a quantity of an order item (in whole or in part).
+     * The line is never deleted — it's marked 'cancelled' so it stays
+     * on the record and prints a cancellation ticket to the kitchen.
+     */
     public function removeItem(Request $request, Order $order, OrderItem $orderItem)
     {
         if ($orderItem->order_id !== $order->id) {
             abort(404);
         }
 
+        if ($orderItem->orderItem_status === 'cancelled') {
+            return redirect()->back()->with('error', 'This item is already cancelled.');
+        }
+
         $validated = $request->validate([
             'quantity' => 'nullable|integer|min:1',
         ]);
 
-        $qtyToRemove = min($validated['quantity'] ?? $orderItem->quantity, $orderItem->quantity);
+        $qtyToCancel = min($validated['quantity'] ?? $orderItem->quantity, $orderItem->quantity);
 
-        // Only items that were actually cooked (preparing/ready) are worth saving —
-        // an item still 'pending' was never made, so there's nothing to hold onto.
-        $eligibleForPrepared = ! $orderItem->is_custom_item
-        && $orderItem->item_id !== null;
-
-        if ($eligibleForPrepared) {
-            $this->saveAsPrepared($orderItem, $qtyToRemove);
-        }
-
-        if ($qtyToRemove >= $orderItem->quantity) {
-            $orderItem->delete();
+        if ($qtyToCancel >= $orderItem->quantity) {
+            $orderItem->update(['orderItem_status' => 'cancelled']);
+            $cancelledLine = $orderItem;
         } else {
-            $orderItem->decrement('quantity', $qtyToRemove);
+            // Split off just the cancelled portion; the rest of the line stays active.
+            $cancelledLine = $order->items()->create([
+                'item_id'          => $orderItem->item_id,
+                'item_name'        => $orderItem->item_name,
+                'is_custom_item'   => $orderItem->is_custom_item,
+                'quantity'         => $qtyToCancel,
+                'price'            => $orderItem->price,
+                'notes'            => $orderItem->notes,
+                'orderItem_status' => 'cancelled',
+                'source'           => $orderItem->source,
+            ]);
+            $orderItem->decrement('quantity', $qtyToCancel);
         }
 
-        $order->load('items');
-        $subtotal = $order->items->sum(fn($oi) => $oi->price * $oi->quantity);
-        $order->update([
-            'subtotal'    => $subtotal,
-            'total_price' => max(0, $subtotal - $order->discount),
-        ]);
+        $this->recalcTotals($order);
 
         $order->load(['user.customer', 'table', 'items.item']);
         broadcast(new OrderItemsUpdated($order))->toOthers();
 
-        return redirect()->back()->with('success', $eligibleForPrepared
-            ? 'Item removed and saved as prepared stock.'
-            : 'Item removed.');
+        $order->loadMissing('table');
+        app(CreatePrintJobsForOrder::class)->createCancellationTickets($order, collect([$cancelledLine]));
+
+        return redirect()->back()->with('success', 'Item cancelled.');
     }
 
-    protected function saveAsPrepared(OrderItem $item, int $qty): void
-    {
-        $prepared = PreparedItem::firstOrNew(['item_id' => $item->item_id]);
-        $prepared->item_name = $item->item_name ?? $item->item?->name ?? 'Unknown Item';
-        $prepared->price = $item->price;
-        $prepared->quantity = ($prepared->quantity ?? 0) + $qty;
-        $prepared->oldest_prepared_at ??= now();
-        $prepared->save();
-
-        PreparedItemLog::create([
-            'item_id'         => $item->item_id,
-            'action'          => 'added',
-            'quantity'        => $qty,
-            'source_order_id' => $item->order_id,
-        ]);
-
-        broadcast(new PreparedStockUpdated($item->item_id, $prepared->quantity))->toOthers();
-    }
-
-    protected function consumeFromPrepared(int $itemId, int $requestedQty, Order $order): int
-    {
-        return DB::transaction(function () use ($itemId, $requestedQty, $order) {
-            $prepared = PreparedItem::where('item_id', $itemId)->lockForUpdate()->first();
-
-            if (! $prepared || $prepared->quantity <= 0) {
-                return 0;
-            }
-
-            $consumed = min($prepared->quantity, $requestedQty);
-            $prepared->quantity -= $consumed;
-
-            if ($prepared->quantity <= 0) {
-                $prepared->delete();
-            } else {
-                $prepared->save();
-            }
-
-            PreparedItemLog::create([
-                'item_id'         => $itemId,
-                'action'          => 'consumed',
-                'quantity'        => $consumed,
-                'target_order_id' => $order->id,
-            ]);
-
-            broadcast(new PreparedStockUpdated($itemId, max(0, $prepared->quantity ?? 0)))->toOthers();
-
-            return $consumed;
-        });
-    }
     public function updateStatus(Request $request, Order $order)
     {
         $request->validate([
@@ -414,8 +350,6 @@ class OrderController extends Controller
         $expectedTotal = round(max(0, (float) $order->subtotal - $discount), 2);
         $sum = round(collect($payments)->sum(fn ($p) => (float) $p['amount']), 2);
 
-
-
         $tendered = null;
         $balance = null;
 
@@ -461,7 +395,6 @@ class OrderController extends Controller
                 'discount'       => $discount,
                 'total_price'    => $expectedTotal,
                 'payment_status' => 'paid',
-                // 'payment_method' => count($payments) === 1 ? $payments[0]['payment_method'] : 'Split',
             ]);
 
             app(RewardService::class)->awardPoints($order);
@@ -500,16 +433,23 @@ class OrderController extends Controller
             app(CreatePrintJobsForOrder::class)->createCancellationTickets($order, collect([$orderItem]));
         }
 
+        // Cancelled items don't count toward the order total — recalc whenever
+        // a line moves into or out of 'cancelled'.
+        if ($request->orderItem_status !== $previousStatus
+            && ($request->orderItem_status === 'cancelled' || $previousStatus === 'cancelled')) {
+            $this->recalcTotals($order);
+        }
+
         return redirect()->back()->with('success', 'Item status updated.');
     }
 
     public function receipt($orderId)
     {
-    $order = \App\Models\Order::with('items.item', 'table', 'user')->findOrFail($orderId);
+        $order = \App\Models\Order::with('items.item', 'table', 'user')->findOrFail($orderId);
 
-    $servedBy = $order->user?->name ?? 'Staff'; // or pass the staff user separately
+        $servedBy = $order->user?->name ?? 'Staff';
 
-    return view('orders.receipt', compact('order', 'servedBy'));
+        return view('orders.receipt', compact('order', 'servedBy'));
     }
 
     public function juiceBar()
@@ -543,14 +483,12 @@ class OrderController extends Controller
 
         broadcast(new PrintJobDispatched([
             'job_type' => 'summary_report',
-            'printer'  => 'counter', // fixed printer key, see below
+            'printer'  => 'counter',
             'payload'  => $data,
         ]));
 
         return back();
     }
-
-
 
     public function silentPrint(Order $order)
     {
@@ -571,20 +509,19 @@ class OrderController extends Controller
                     'order_number' => $order->order_number,
                     'order_type'   => str_replace('_', ' ', $order->order_type),
                     'table_name'   => $order->table?->name,
-                    // Add dynamic date and time based on the order's creation
                     'date'         => $order->created_at->format('d-m-Y'),
                     'time'         => $order->created_at->format('h:i A'),
                     'counter'      => $counter->name ?? '01',
                     'customer_name' => $order->user?->customer?->first_name . ' ' . $order->user?->customer?->last_name,
-                    'customer_contact' => $order->user?->customer?->phone_number ,
-                    'customer_address' => $order->user?->customer?->address ,
-                    'items'        => $order->items->map(fn ($orderItem) => [
-                        'name'     => $orderItem->item_name ?? $orderItem->item?->name ?? 'Unknown Item',
-                        'quantity' => $orderItem->quantity,
-                        // Format price to 2 decimal places string
-                        'price'    => number_format((float) $orderItem->price, 2, '.', ''),
-                    ])->values()->all(),
-                    // Ensure totals are formatted properly for the printer
+                    'customer_contact' => $order->user?->customer?->phone_number,
+                    'customer_address' => $order->user?->customer?->address,
+                    'items'        => $order->items
+                        ->where('orderItem_status', '!=', 'cancelled')
+                        ->map(fn ($orderItem) => [
+                            'name'     => $orderItem->item_name ?? $orderItem->item?->name ?? 'Unknown Item',
+                            'quantity' => $orderItem->quantity,
+                            'price'    => number_format((float) $orderItem->price, 2, '.', ''),
+                        ])->values()->all(),
                     'sub_total'    => number_format((float) $order->total_price, 2, '.', ''),
                     'total_price'  => number_format((float) $order->total_price, 2, '.', ''),
                     'payment_method' => $order->paymentSplits->isNotEmpty()
@@ -602,29 +539,12 @@ class OrderController extends Controller
         }
     }
 
+    /**
+     * Full order edit screen — order setup, customer, existing items,
+     * payment, and adding new items, all in one place.
+     */
     public function edit(Order $order)
     {
-        $order->load(['user.customer', 'table', 'items.item']);
-
-        $categories = Category::with(['items' => fn($q) => $q->where('is_active', true)->orderBy('name')])
-            ->orderBy('sort_order')
-            ->orderBy('id')
-            ->get();
-
-        $preparedItems = PreparedItem::where('quantity', '>', 0)
-            ->get(['item_id', 'item_name', 'quantity'])
-            ->keyBy('item_id');
-
-        return Inertia::render('orders/edit', [
-            'order'          => $order,
-            'categories'     => $categories,
-            'preparedStock'  => $preparedItems, // { [item_id]: { quantity, item_name } }
-        ]);
-    }
-
-    public function Orderedit(Order $order)
-    {
-        // Load paymentSplits to populate the current payment method in React
         $order->load(['user.customer', 'table', 'items.item', 'paymentSplits']);
 
         $categories = Category::with(['items' => fn($q) => $q->where('is_active', true)->orderBy('name')])
@@ -644,16 +564,11 @@ class OrderController extends Controller
                 'phone' => $u->customer?->phone_number,
             ]);
 
-        $preparedItems = PreparedItem::where('quantity', '>', 0)
-            ->get(['item_id', 'item_name', 'quantity'])
-            ->keyBy('item_id');
-
-        return Inertia::render('orders/adminedit', [
-            'order'          => $order,
-            'categories'     => $categories,
-            'tables'         => $tables,
-            'customers'      => $customers,
-            'preparedStock'  => $preparedItems,
+        return Inertia::render('orders/edit', [
+            'order'      => $order,
+            'categories' => $categories,
+            'tables'     => $tables,
+            'customers'  => $customers,
         ]);
     }
 
@@ -702,7 +617,6 @@ class OrderController extends Controller
 
         $userId = $validated['user_id'] ?? $order->user_id;
 
-        // "Find or create guest customer" logic
         if (! $userId && ! empty($validated['customer_name']) && ! empty($validated['customer_phone'])) {
             $existingCustomer = Customer::where('phone_number', $validated['customer_phone'])->first();
 
@@ -732,34 +646,31 @@ class OrderController extends Controller
         }
 
         $newOrderItems = collect();
+        $cancelledLines = collect();
 
-        DB::transaction(function () use ($validated, $order, $userId, &$newOrderItems) {
+        DB::transaction(function () use ($validated, $order, $userId, &$newOrderItems, &$cancelledLines) {
             $orderTypeChanged = $validated['order_type'] !== $order->order_type;
 
             $order->update([
-                'order_type'     => $validated['order_type'],
-                'payment_status' => $validated['payment_status'], // Add updated payment status
-                'table_id'       => $validated['table_id'] ?? null,
-                'user_id'        => $userId,
-                'discount'       => (float) ($validated['discount'] ?? $order->discount),
+                'order_type' => $validated['order_type'],
+                'table_id'   => $validated['table_id'] ?? null,
+                'user_id'    => $userId,
+                'discount'   => (float) ($validated['discount'] ?? $order->discount),
             ]);
 
-            // --- Existing items: update quantity/notes, or delete if quantity is 0 ---
+            // --- Existing items: update quantity/notes, or cancel if quantity is 0 ---
             foreach ($validated['existing_items'] ?? [] as $entry) {
                 $orderItem = OrderItem::where('id', $entry['id'])->where('order_id', $order->id)->first();
-                if (! $orderItem) {
+
+                if (! $orderItem || $orderItem->orderItem_status === 'cancelled') {
                     continue;
                 }
 
                 $qty = (int) $entry['quantity'];
 
                 if ($qty <= 0) {
-                    // Only cooked, catalog items are worth saving.
-                    $eligibleForPrepared = ! $orderItem->is_custom_item && $orderItem->item_id !== null;
-                    if ($eligibleForPrepared) {
-                        $this->saveAsPrepared($orderItem, $orderItem->quantity);
-                    }
-                    $orderItem->delete();
+                    $orderItem->update(['orderItem_status' => 'cancelled']);
+                    $cancelledLines->push($orderItem);
                     continue;
                 }
 
@@ -771,7 +682,6 @@ class OrderController extends Controller
                 ];
 
                 if ($orderItem->is_custom_item) {
-                    // One-time items: name and price can be edited directly.
                     if (isset($entry['name']) && trim((string) $entry['name']) !== '') {
                         $updates['item_name'] = trim($entry['name']);
                     }
@@ -779,51 +689,31 @@ class OrderController extends Controller
                         $updates['price'] = (float) $entry['price'];
                     }
                 } elseif ($orderTypeChanged && $orderItem->item) {
-                    // Catalog items: re-price if the order type (and therefore
-                    // takeaway/aggregator pricing) changed.
+                    // Re-price catalog items when order type changes (e.g. Uber/PickMe cut).
                     $updates['price'] = $this->itemPriceForOrderType($orderItem->item, $validated['order_type']);
                 }
 
                 $orderItem->update($updates);
             }
 
-            // --- New catalog items (reuses Prepared-stock consumption) ---
+            // --- New catalog items ---
             foreach ($validated['new_items'] ?? [] as $entry) {
                 $item = Item::findOrFail($entry['id']);
                 $price = $this->itemPriceForOrderType($item, $validated['order_type']);
-                $requestedQty = $entry['quantity'];
                 $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
 
-                $consumedQty = $this->consumeFromPrepared($item->id, $requestedQty, $order);
-                $remainingQty = $requestedQty - $consumedQty;
-
-                if ($consumedQty > 0) {
-                    $order->items()->create([
-                        'item_id'          => $item->id,
-                        'item_name'        => $item->name,
-                        'is_custom_item'   => false,
-                        'quantity'         => $consumedQty,
-                        'price'            => $price,
-                        'notes'            => $notes !== '' ? $notes : null,
-                        'orderItem_status' => 'ready',
-                        'source'           => 'prepared',
-                    ]);
-                }
-
-                if ($remainingQty > 0) {
-                    $created = $order->items()->create([
-                        'item_id'          => $item->id,
-                        'item_name'        => $item->name,
-                        'is_custom_item'   => false,
-                        'quantity'         => $remainingQty,
-                        'price'            => $price,
-                        'notes'            => $notes !== '' ? $notes : null,
-                        'orderItem_status' => 'pending',
-                        'source'           => 'new',
-                    ]);
-                    $created->setRelation('item', $item);
-                    $newOrderItems->push($created);
-                }
+                $created = $order->items()->create([
+                    'item_id'          => $item->id,
+                    'item_name'        => $item->name,
+                    'is_custom_item'   => false,
+                    'quantity'         => $entry['quantity'],
+                    'price'            => $price,
+                    'notes'            => $notes !== '' ? $notes : null,
+                    'orderItem_status' => 'pending',
+                    'source'           => 'new',
+                ]);
+                $created->setRelation('item', $item);
+                $newOrderItems->push($created);
             }
 
             // --- New one-time items ---
@@ -843,32 +733,29 @@ class OrderController extends Controller
                 $newOrderItems->push($created);
             }
 
-            $order->load('items');
-            $subtotal = $order->items->sum(fn($oi) => $oi->price * $oi->quantity);
-            $totalPrice = max(0, $subtotal - $order->discount);
+            $this->recalcTotals($order);
 
-            $order->update([
-                'subtotal'    => $subtotal,
-                'total_price' => $totalPrice,
-            ]);
-
-            // --- Sync Payment Splits ---
-            // If the order was just marked as paid (or is staying paid), we sync a single split.
-            // If there's an actual split required, the normal POS checkout flow is preferred.
-            // For admin edit purposes, we will override with the selected master payment method.
-            if ($validated['payment_status'] === 'paid' && !empty($validated['payment_method'])) {
+            // --- Payment sync (admin override — not a substitute for the checkout flow) ---
+            if ($validated['payment_status'] === 'paid' && ! empty($validated['payment_method'])) {
                 $order->paymentSplits()->delete();
                 $order->paymentSplits()->create([
                     'payment_method' => $validated['payment_method'],
-                    'amount'         => $totalPrice,
+                    'amount'         => $order->fresh()->total_price,
                 ]);
-            } elseif ($validated['payment_status'] === 'pending') {
+                $order->update(['payment_status' => 'paid']);
+            } else {
                 $order->paymentSplits()->delete();
+                $order->update(['payment_status' => 'pending']);
             }
         });
 
         $order->load(['user.customer', 'table', 'items.item']);
         broadcast(new OrderItemsUpdated($order))->toOthers();
+
+        if ($cancelledLines->isNotEmpty()) {
+            $order->loadMissing('table');
+            app(CreatePrintJobsForOrder::class)->createCancellationTickets($order, $cancelledLines);
+        }
 
         if ($newOrderItems->isNotEmpty()) {
             app(CreatePrintJobsForOrder::class)->createTicketJobs($order, $newOrderItems);
@@ -877,6 +764,10 @@ class OrderController extends Controller
         return redirect()->route('orders.show', $order)->with('success', 'Order updated.');
     }
 
+    /**
+     * Quick "add items only" action, used e.g. from the order show page.
+     * The full edit screen (edit()/update()) covers this plus everything else.
+     */
     public function addItems(Request $request, Order $order)
     {
         $validated = $request->validate([
@@ -904,76 +795,43 @@ class OrderController extends Controller
         foreach ($items as $entry) {
             $item = Item::with('category.counters')->findOrFail($entry['id']);
             $price = $this->itemPriceForOrderType($item, $order->order_type);
-            $requestedQty = $entry['quantity'];
 
-            // Serve from Prepared stock first — no kitchen ticket for that portion.
-            $consumedQty = $this->consumeFromPrepared($item->id, $requestedQty, $order);
-            $remainingQty = $requestedQty - $consumedQty;
+            $existing = $order->items()
+                ->where('item_id', $item->id)
+                ->where('orderItem_status', 'pending')
+                ->where('source', 'new')
+                ->first();
 
-            if ($consumedQty > 0) {
-                $existingPrepared = $order->items()
-                    ->where('item_id', $item->id)
-                    ->where('source', 'prepared')
-                    ->first();
+            if ($existing) {
+                $existing->increment('quantity', $entry['quantity']);
 
-                if ($existingPrepared) {
-                    $existingPrepared->increment('quantity', $consumedQty);
-                } else {
-                    $order->items()->create([
-                        'item_id'          => $item->id,
-                        'item_name'        => $item->name,
-                        'is_custom_item'   => false,
-                        'quantity'         => $consumedQty,
-                        'price'            => $price,
-                        'orderItem_status' => 'ready',
-                        'source'           => 'prepared',
-                    ]);
-                }
-            }
-
-            if ($remainingQty > 0) {
-                $existing = $order->items()
-                    ->where('item_id', $item->id)
-                    ->where('orderItem_status', 'pending')
-                    ->where('source', 'new')
-                    ->first();
-
-                if ($existing) {
-                    $existing->increment('quantity', $remainingQty);
-
-                    $ticketLine = (clone $existing)->setRelation('item', $item);
-                    $ticketLine->quantity = $remainingQty;
-                    $newOrderItems->push($ticketLine);
-                } else {
-                    $created = $order->items()->create([
-                        'item_id'          => $item->id,
-                        'item_name'        => $item->name,
-                        'is_custom_item'   => false,
-                        'quantity'         => $remainingQty,
-                        'price'            => $price,
-                        'orderItem_status' => 'pending',
-                        'source'           => 'new',
-                    ]);
-                    $created->setRelation('item', $item);
-                    $newOrderItems->push($created);
-                }
+                $ticketLine = (clone $existing)->setRelation('item', $item);
+                $ticketLine->quantity = $entry['quantity'];
+                $newOrderItems->push($ticketLine);
+            } else {
+                $created = $order->items()->create([
+                    'item_id'          => $item->id,
+                    'item_name'        => $item->name,
+                    'is_custom_item'   => false,
+                    'quantity'         => $entry['quantity'],
+                    'price'            => $price,
+                    'orderItem_status' => 'pending',
+                    'source'           => 'new',
+                ]);
+                $created->setRelation('item', $item);
+                $newOrderItems->push($created);
             }
         }
 
-        // One-time / custom items always get their own new line — there's no
-        // catalog item to match or fulfil from Prepared stock against.
         foreach ($customItems as $entry) {
-            $name = trim((string) $entry['name']);
-            $price = (float) $entry['price'];
-            $quantity = (int) $entry['quantity'];
             $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
 
             $created = $order->items()->create([
                 'item_id'          => null,
-                'item_name'        => $name,
+                'item_name'        => trim((string) $entry['name']),
                 'is_custom_item'   => true,
-                'quantity'         => $quantity,
-                'price'            => $price,
+                'quantity'         => (int) $entry['quantity'],
+                'price'            => (float) $entry['price'],
                 'notes'            => $notes !== '' ? $notes : null,
                 'orderItem_status' => 'pending',
                 'source'           => 'new',
@@ -981,13 +839,7 @@ class OrderController extends Controller
             $newOrderItems->push($created);
         }
 
-        $order->load('items');
-        $subtotal = $order->items->sum(fn($oi) => $oi->price * $oi->quantity);
-
-        $order->update([
-            'subtotal'    => $subtotal,
-            'total_price' => max(0, $subtotal - $order->discount),
-        ]);
+        $this->recalcTotals($order);
 
         $order->load(['user.customer', 'table', 'items.item']);
         broadcast(new OrderItemsUpdated($order))->toOthers();
