@@ -10,6 +10,8 @@ interface Item {
     name: string;
     price: number;
     takeaway_price: number | null;
+    uber_price: number | null;
+    pickme_price: number | null;
 }
 
 interface Category {
@@ -76,6 +78,8 @@ interface NewCartLine {
     name: string;
     basePrice: number;
     takeawayPrice: number | null;
+    uberPrice: number | null;
+    pickmePrice: number | null;
     quantity: number;
     notes: string | null;
 }
@@ -97,6 +101,8 @@ interface EditableExistingItem {
     price: number; // editable, custom items only
     basePrice: number; // catalog price, for live re-pricing preview
     takeawayPrice: number | null;
+    uberPrice: number | null;
+    pickmePrice: number | null;
     quantity: number; // 0 = marked for cancellation
     notes: string;
     status: string;
@@ -119,11 +125,19 @@ const breadcrumbs = (orderNumber: string): BreadcrumbItem[] => [
 ];
 
 // Mirrors Item::priceForOrderType() on the backend.
-function priceForOrderType(basePrice: number, takeawayPrice: number | null, orderType: string): number {
-    const usesTakeawayBase = ['takeaway', 'uber', 'pickme'].includes(orderType) && takeawayPrice !== null;
-    const base = usesTakeawayBase ? takeawayPrice! : basePrice;
-    return ['uber', 'pickme'].includes(orderType) ? base * 0.7 : base;
+function priceForOrderType(
+    basePrice: number,
+    takeawayPrice: number | null,
+    uberPrice: number | null,
+    pickmePrice: number | null,
+    orderType: string)
+    : number {
+    if (orderType === 'uber') return uberPrice ?? takeawayPrice ?? basePrice;
+    if (orderType === 'pickme') return pickmePrice ?? takeawayPrice ?? basePrice;
+    if (orderType === 'takeaway' && takeawayPrice !== null) return takeawayPrice;
+    return basePrice;
 }
+
 
 // Safely match the saved payment method against available options
 function getInitialPaymentMethod(splits?: OrderPaymentSplit[]): string {
@@ -163,6 +177,8 @@ export default function OrderEdit({ order, categories, tables, customers }: Prop
                 price: Number(oi.price),
                 basePrice: oi.item ? Number(oi.item.price) : Number(oi.price),
                 takeawayPrice: oi.item?.takeaway_price != null ? Number(oi.item.takeaway_price) : null,
+                uberPrice: oi.item?.uber_price != null ? Number(oi.item.uber_price) : null,
+                pickmePrice: oi.item?.pickme_price != null ? Number(oi.item.pickme_price) : null,
                 quantity: oi.quantity,
                 notes: oi.notes ?? '',
                 status: oi.orderItem_status,
@@ -231,6 +247,8 @@ export default function OrderEdit({ order, categories, tables, customers }: Prop
                     name: item.name,
                     basePrice: Number(item.price),
                     takeawayPrice: item.takeaway_price != null ? Number(item.takeaway_price) : null,
+                    uberPrice: item.uber_price != null ? Number(item.uber_price) : null,
+                    pickmePrice: item.pickme_price != null ? Number(item.pickme_price) : null,
                     quantity: 1,
                     notes: null,
                 },
@@ -275,14 +293,16 @@ export default function OrderEdit({ order, categories, tables, customers }: Prop
 
     // ---- Live totals preview (mirrors backend pricing logic) ----
     const existingItemLivePrice = (line: EditableExistingItem) =>
-        line.is_custom_item ? line.price : priceForOrderType(line.basePrice, line.takeawayPrice, orderType);
+    line.is_custom_item
+        ? line.price
+        : priceForOrderType(line.basePrice, line.takeawayPrice, line.uberPrice, line.pickmePrice, orderType);
 
     const existingTotal = existingItems.reduce(
         (sum, e) => sum + existingItemLivePrice(e) * e.quantity,
         0,
     );
     const newCartTotal = cart.reduce(
-        (sum, l) => sum + priceForOrderType(l.basePrice, l.takeawayPrice, orderType) * l.quantity,
+        (sum, l) => sum + priceForOrderType(l.basePrice, l.takeawayPrice, l.uberPrice, l.pickmePrice, orderType) * l.quantity,
         0,
     );
     const newCustomTotal = customItems.reduce((sum, l) => sum + l.price * l.quantity, 0);
@@ -662,7 +682,7 @@ export default function OrderEdit({ order, categories, tables, customers }: Prop
                                     >
                                         <span className="text-sm font-medium">{item.name}</span>
                                         <span className="text-xs text-muted-foreground">
-                                            Rs. {priceForOrderType(Number(item.price), item.takeaway_price != null ? Number(item.takeaway_price) : null, orderType).toFixed(2)}
+                                            Rs. {priceForOrderType(Number(item.price), item.takeaway_price != null ? Number(item.takeaway_price) : null, item.uber_price != null ? Number(item.uber_price) : null, item.pickme_price != null ? Number(item.pickme_price) : null, orderType).toFixed(2)}
                                         </span>
                                     </button>
                                 ))}
@@ -680,7 +700,7 @@ export default function OrderEdit({ order, categories, tables, customers }: Prop
                                             <div>
                                                 <p>{line.name}</p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    Rs. {(priceForOrderType(line.basePrice, line.takeawayPrice, orderType) * line.quantity).toFixed(2)}
+                                                    Rs. {(priceForOrderType(line.basePrice, line.takeawayPrice, line.uberPrice, line.pickmePrice, orderType) * line.quantity).toFixed(2)}
                                                 </p>
                                             </div>
                                             <div className="flex items-center gap-2">

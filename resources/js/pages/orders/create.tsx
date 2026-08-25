@@ -18,6 +18,8 @@ interface Item {
     name: string;
     price: number;
     takeaway_price: number | null;
+    uber_price: number | null;
+    pickme_price: number | null;
     image_url: string | null;
     is_active: boolean;
 }
@@ -129,10 +131,16 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
 
     const selectedCat = categories.find((c) => c.id === selectedCatId) ?? null;
     const getItemPrice = (item: Item) => {
-       const usesTakeawayBase =
-           ['takeaway', 'uber', 'pickme'].includes(orderType) && item.takeaway_price !== null;
-       const base = usesTakeawayBase ? Number(item.takeaway_price) : Number(item.price);
-       return ['uber', 'pickme'].includes(orderType) ? base * 0.7 : base;
+        if (orderType === 'uber') {
+            return Number(item.uber_price ?? item.takeaway_price ?? item.price);
+        }
+        if (orderType === 'pickme') {
+            return Number(item.pickme_price ?? item.takeaway_price ?? item.price);
+        }
+        if (orderType === 'takeaway' && item.takeaway_price !== null) {
+            return Number(item.takeaway_price);
+        }
+        return Number(item.price);
     };
     const allItems: SearchItem[] = categories.flatMap((category) =>
         category.items.map((item) => ({
@@ -518,7 +526,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                                             <p className="mt-1 text-xs text-muted-foreground">
                                                                 Rs. {getItemPrice(item).toFixed(2)}
                                                             </p>
-                                                            
+
                                                             {inCart && (
                                                                 <Badge className="mt-2 text-xs" variant="secondary">
                                                                     {inCart.quantity} selected

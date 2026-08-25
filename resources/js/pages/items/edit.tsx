@@ -19,6 +19,8 @@ interface EditProps {
         description?: string;
         price: number;
         takeaway_price?: number | null;
+        uber_price?: number | null;
+        pickme_price?: number | null;
         category_id: number;
         image_url?: string;
         quantity?: number;
@@ -33,6 +35,8 @@ export default function EditItem({ item, categories }: EditProps) {
         description: item.description || '',
         price: String(item.price || ''),
         takeaway_price: item.takeaway_price === null || item.takeaway_price === undefined ? '' : String(item.takeaway_price),
+        uber_price: item.uber_price === null || item.uber_price === undefined ? '' : String(item.uber_price),
+        pickme_price: item.pickme_price === null || item.pickme_price === undefined ? '' : String(item.pickme_price),
         category_id: String(item.category_id || ''),
         quantity: String(item.quantity || ''),
     });
@@ -68,6 +72,8 @@ export default function EditItem({ item, categories }: EditProps) {
         form.append('description', formData.description);
         form.append('price', formData.price);
         form.append('takeaway_price', formData.takeaway_price);
+        form.append('uber_price', formData.uber_price);
+        form.append('pickme_price', formData.pickme_price);
         form.append('category_id', formData.category_id);
         form.append('quantity', formData.quantity);
         if (imageFile) {
@@ -127,6 +133,30 @@ export default function EditItem({ item, categories }: EditProps) {
                             placeholder="Leave blank to use normal price"
                         />
                         <InputError message={errors.takeaway_price} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="uber_price">Uber Eats Price</Label>
+                        <Input
+                            id="uber_price"
+                            name="uber_price"
+                            value={formData.uber_price}
+                            onChange={handleChange}
+                            placeholder="Leave blank to fall back to takeaway price"
+                        />
+                        <InputError message={errors.uber_price} />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="pickme_price">PickMe Price</Label>
+                        <Input
+                            id="pickme_price"
+                            name="pickme_price"
+                            value={formData.pickme_price}
+                            onChange={handleChange}
+                            placeholder="Leave blank to fall back to takeaway price"
+                        />
+                        <InputError message={errors.pickme_price} />
                     </div>
 
                     <div className="grid gap-2">

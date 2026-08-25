@@ -12,6 +12,8 @@ class Item extends Model
         'description',
         'price',
         'takeaway_price',
+        'uber_price',
+        'pickme_price',
         'category_id',
         'is_active',
         'image_url',
@@ -29,18 +31,16 @@ class Item extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    public function priceForOrderType(string $orderType): float
+     public function priceForOrderType(string $orderType): float
     {
-        $usesTakeawayBase = in_array($orderType, ['takeaway', 'uber', 'pickme'], true)
-            && $this->takeaway_price !== null;
+        $price = match ($orderType) {
+            'takeaway' => $this->takeaway_price ?? $this->price,
+            'uber'     => $this->uber_price ?? $this->takeaway_price ?? $this->price,
+            'pickme'   => $this->pickme_price ?? $this->takeaway_price ?? $this->price,
+            default    => $this->price,
+        };
 
-        $price = $usesTakeawayBase ? (float) $this->takeaway_price : (float) $this->price;
-
-        if (in_array($orderType, ['uber', 'pickme'], true)) {
-            $price *= 0.7; // 30% off for delivery-aggregator orders (commission offset)
-        }
-
-        return round($price, 2);
+        return round((float) $price, 2);
     }
 
 

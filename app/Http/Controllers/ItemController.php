@@ -35,6 +35,8 @@ class ItemController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric',
             'takeaway_price' => 'nullable|numeric|min:0',
+            'uber_price' => 'nullable|numeric|min:0',
+            'pickme_price' => 'nullable|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
@@ -44,14 +46,15 @@ class ItemController extends Controller
             'description' => $request->get('description'),
             'price' => $request->get('price'),
             'takeaway_price' => $request->get('takeaway_price'),
+            'uber_price' => $request->get('uber_price'),
+            'pickme_price' => $request->get('pickme_price'),
             'category_id' => $request->get('category_id'),
             'is_active' => true,
             'quantity' => $request->get('quantity', 0),
         ];
 
         if ($request->hasFile('image')) {
-            $imageUrl = $this->uploadImageToS3($request->file('image'));
-            $data['image_url'] = $imageUrl;
+            $data['image_url'] = $this->uploadImageToS3($request->file('image'));
         }
 
         Item::create($data);
@@ -75,6 +78,8 @@ class ItemController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric',
             'takeaway_price' => 'nullable|numeric|min:0',
+            'uber_price' => 'nullable|numeric|min:0',
+            'pickme_price' => 'nullable|numeric|min:0',
             'category_id' => 'required|exists:categories,id',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ]);
@@ -83,6 +88,8 @@ class ItemController extends Controller
             'name' => $request->get('name'),
             'description' => $request->get('description'),
             'price' => $request->get('price'),
+            'uber_price' => $request->get('uber_price'),
+            'pickme_price' => $request->get('pickme_price'),
             'takeaway_price' => $request->get('takeaway_price'),
             'category_id' => $request->get('category_id'),
             'quantity' => $request->get('quantity', $item->quantity),
