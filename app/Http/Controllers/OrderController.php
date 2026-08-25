@@ -574,194 +574,223 @@ class OrderController extends Controller
 
     public function update(Request $request, Order $order)
     {
-        if ($order->order_status === 'cancelled') {
-            abort(422, 'Cancelled orders cannot be edited.');
-        }
-
-        $validated = $request->validate([
-            'order_type'     => 'required|in:dine_in,takeaway,delivery,uber,pickme',
-            'payment_status' => 'required|in:pending,paid',
-            'payment_method' => 'nullable|in:Cash,Visa,Master,Uber,Pickme,Bank_Transfer',
-            'table_id'       => 'nullable|exists:tables,id',
-            'user_id'        => 'nullable|exists:users,id',
-            'customer_name'  => 'nullable|string|max:255',
-            'customer_phone' => 'nullable|string|max:20',
-            'discount'       => 'nullable|numeric|min:0',
-
-            'existing_items'             => 'nullable|array',
-            'existing_items.*.id'        => 'required|exists:order_items,id',
-            'existing_items.*.quantity'  => 'required|integer|min:0',
-            'existing_items.*.notes'     => 'nullable|string|max:1000',
-            'existing_items.*.name'      => 'nullable|string|max:255',
-            'existing_items.*.price'     => 'nullable|numeric|min:0',
-
-            'new_items'                  => 'nullable|array',
-            'new_items.*.id'             => 'required|exists:items,id',
-            'new_items.*.quantity'       => 'required|integer|min:1',
-            'new_items.*.notes'          => 'nullable|string|max:1000',
-
-            'new_custom_items'               => 'nullable|array',
-            'new_custom_items.*.name'        => 'required|string|max:255',
-            'new_custom_items.*.price'       => 'required|numeric|min:0',
-            'new_custom_items.*.quantity'    => 'required|integer|min:1',
-            'new_custom_items.*.notes'       => 'nullable|string|max:1000',
+        \Log::info('orders.update: request received', [
+            'order_id'  => $order->id,
+            'user_id'   => auth()->id(),
+            'user_type' => auth()->user()?->type,
+            'payload'   => $request->all(),
         ]);
 
-        if ($validated['order_type'] !== 'dine_in') {
-            $validated['table_id'] = null;
-        } elseif (empty($validated['table_id'])) {
-            throw ValidationException::withMessages([
-                'table_id' => 'Please select a table for a dine-in order.',
-            ]);
-        }
-
-        $userId = $validated['user_id'] ?? $order->user_id;
-
-        if (! $userId && ! empty($validated['customer_name']) && ! empty($validated['customer_phone'])) {
-            $existingCustomer = Customer::where('phone_number', $validated['customer_phone'])->first();
-
-            if ($existingCustomer) {
-                $userId = $existingCustomer->user_id;
-            } else {
-                $newUser = DB::transaction(function () use ($validated) {
-                    $user = User::create([
-                        'name'     => $validated['customer_name'],
-                        'email'    => 'guest_' . Str::random(10) . '@ceylontable.lk',
-                        'password' => Str::random(20),
-                        'type'     => 'customer',
-                    ]);
-
-                    Customer::create([
-                        'user_id'      => $user->id,
-                        'first_name'   => $validated['customer_name'],
-                        'last_name'    => '',
-                        'phone_number' => $validated['customer_phone'],
-                    ]);
-
-                    return $user;
-                });
-
-                $userId = $newUser->id;
+        try {
+            if ($order->order_status === 'cancelled') {
+                \Log::info('orders.update: aborted, order is cancelled', ['order_id' => $order->id]);
+                abort(422, 'Cancelled orders cannot be edited.');
             }
-        }
 
-        $newOrderItems = collect();
-        $cancelledLines = collect();
+            $validated = $request->validate([
+                'order_type'     => 'required|in:dine_in,takeaway,delivery,uber,pickme',
+                'payment_status' => 'required|in:pending,paid',
+                'payment_method' => 'nullable|in:Cash,Visa,Master,Uber,Pickme,Bank_Transfer',
+                'table_id'       => 'nullable|exists:tables,id',
+                'user_id'        => 'nullable|exists:users,id',
+                'customer_name'  => 'nullable|string|max:255',
+                'customer_phone' => 'nullable|string|max:20',
+                'discount'       => 'nullable|numeric|min:0',
 
-        DB::transaction(function () use ($validated, $order, $userId, &$newOrderItems, &$cancelledLines) {
-            $orderTypeChanged = $validated['order_type'] !== $order->order_type;
+                'existing_items'             => 'nullable|array',
+                'existing_items.*.id'        => 'required|exists:order_items,id',
+                'existing_items.*.quantity'  => 'required|integer|min:0',
+                'existing_items.*.notes'     => 'nullable|string|max:1000',
+                'existing_items.*.name'      => 'nullable|string|max:255',
+                'existing_items.*.price'     => 'nullable|numeric|min:0',
 
-            $order->update([
-                'order_type' => $validated['order_type'],
-                'table_id'   => $validated['table_id'] ?? null,
-                'user_id'    => $userId,
-                'discount'   => (float) ($validated['discount'] ?? $order->discount),
+                'new_items'                  => 'nullable|array',
+                'new_items.*.id'             => 'required|exists:items,id',
+                'new_items.*.quantity'       => 'required|integer|min:1',
+                'new_items.*.notes'          => 'nullable|string|max:1000',
+
+                'new_custom_items'               => 'nullable|array',
+                'new_custom_items.*.name'        => 'required|string|max:255',
+                'new_custom_items.*.price'       => 'required|numeric|min:0',
+                'new_custom_items.*.quantity'    => 'required|integer|min:1',
+                'new_custom_items.*.notes'       => 'nullable|string|max:1000',
             ]);
 
-            // --- Existing items: update quantity/notes, or cancel if quantity is 0 ---
-            foreach ($validated['existing_items'] ?? [] as $entry) {
-                $orderItem = OrderItem::where('id', $entry['id'])->where('order_id', $order->id)->first();
+            \Log::info('orders.update: validation passed', ['order_id' => $order->id, 'validated' => $validated]);
 
-                if (! $orderItem || $orderItem->orderItem_status === 'cancelled') {
-                    continue;
+            if ($validated['order_type'] !== 'dine_in') {
+                $validated['table_id'] = null;
+            } elseif (empty($validated['table_id'])) {
+                throw ValidationException::withMessages([
+                    'table_id' => 'Please select a table for a dine-in order.',
+                ]);
+            }
+
+            $userId = $validated['user_id'] ?? $order->user_id;
+
+            if (! $userId && ! empty($validated['customer_name']) && ! empty($validated['customer_phone'])) {
+                $existingCustomer = Customer::where('phone_number', $validated['customer_phone'])->first();
+
+                if ($existingCustomer) {
+                    $userId = $existingCustomer->user_id;
+                } else {
+                    $newUser = DB::transaction(function () use ($validated) {
+                        $user = User::create([
+                            'name'     => $validated['customer_name'],
+                            'email'    => 'guest_' . Str::random(10) . '@ceylontable.lk',
+                            'password' => Str::random(20),
+                            'type'     => 'customer',
+                        ]);
+
+                        Customer::create([
+                            'user_id'      => $user->id,
+                            'first_name'   => $validated['customer_name'],
+                            'last_name'    => '',
+                            'phone_number' => $validated['customer_phone'],
+                        ]);
+
+                        return $user;
+                    });
+
+                    $userId = $newUser->id;
                 }
+            }
 
-                $qty = (int) $entry['quantity'];
+            $newOrderItems = collect();
+            $cancelledLines = collect();
 
-                if ($qty <= 0) {
-                    $orderItem->update(['orderItem_status' => 'cancelled']);
-                    $cancelledLines->push($orderItem);
-                    continue;
-                }
+            DB::transaction(function () use ($validated, $order, $userId, &$newOrderItems, &$cancelledLines) {
+                $orderTypeChanged = $validated['order_type'] !== $order->order_type;
 
-                $updates = [
-                    'quantity' => $qty,
-                    'notes'    => isset($entry['notes']) && trim((string) $entry['notes']) !== ''
-                        ? trim($entry['notes'])
-                        : null,
-                ];
+                $order->update([
+                    'order_type' => $validated['order_type'],
+                    'table_id'   => $validated['table_id'] ?? null,
+                    'user_id'    => $userId,
+                    'discount'   => (float) ($validated['discount'] ?? $order->discount),
+                ]);
 
-                if ($orderItem->is_custom_item) {
-                    if (isset($entry['name']) && trim((string) $entry['name']) !== '') {
-                        $updates['item_name'] = trim($entry['name']);
+                foreach ($validated['existing_items'] ?? [] as $entry) {
+                    $orderItem = OrderItem::where('id', $entry['id'])->where('order_id', $order->id)->first();
+
+                    if (! $orderItem || $orderItem->orderItem_status === 'cancelled') {
+                        continue;
                     }
-                    if (isset($entry['price'])) {
-                        $updates['price'] = (float) $entry['price'];
+
+                    $qty = (int) $entry['quantity'];
+
+                    if ($qty <= 0) {
+                        $orderItem->update(['orderItem_status' => 'cancelled']);
+                        $cancelledLines->push($orderItem);
+                        continue;
                     }
-                } elseif ($orderTypeChanged && $orderItem->item) {
-                    // Re-price catalog items when order type changes (e.g. Uber/PickMe cut).
-                    $updates['price'] = $this->itemPriceForOrderType($orderItem->item, $validated['order_type']);
+
+                    $updates = [
+                        'quantity' => $qty,
+                        'notes'    => isset($entry['notes']) && trim((string) $entry['notes']) !== ''
+                            ? trim($entry['notes'])
+                            : null,
+                    ];
+
+                    if ($orderItem->is_custom_item) {
+                        if (isset($entry['name']) && trim((string) $entry['name']) !== '') {
+                            $updates['item_name'] = trim($entry['name']);
+                        }
+                        if (isset($entry['price'])) {
+                            $updates['price'] = (float) $entry['price'];
+                        }
+                    } elseif ($orderTypeChanged && $orderItem->item) {
+                        $updates['price'] = $this->itemPriceForOrderType($orderItem->item, $validated['order_type']);
+                    }
+
+                    $orderItem->update($updates);
                 }
 
-                $orderItem->update($updates);
+                foreach ($validated['new_items'] ?? [] as $entry) {
+                    $item = Item::findOrFail($entry['id']);
+                    $price = $this->itemPriceForOrderType($item, $validated['order_type']);
+                    $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
+
+                    $created = $order->items()->create([
+                        'item_id'          => $item->id,
+                        'item_name'        => $item->name,
+                        'is_custom_item'   => false,
+                        'quantity'         => $entry['quantity'],
+                        'price'            => $price,
+                        'notes'            => $notes !== '' ? $notes : null,
+                        'orderItem_status' => 'pending',
+                        'source'           => 'new',
+                    ]);
+                    $created->setRelation('item', $item);
+                    $newOrderItems->push($created);
+                }
+
+                foreach ($validated['new_custom_items'] ?? [] as $entry) {
+                    $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
+
+                    $created = $order->items()->create([
+                        'item_id'          => null,
+                        'item_name'        => trim($entry['name']),
+                        'is_custom_item'   => true,
+                        'quantity'         => (int) $entry['quantity'],
+                        'price'            => (float) $entry['price'],
+                        'notes'            => $notes !== '' ? $notes : null,
+                        'orderItem_status' => 'pending',
+                        'source'           => 'new',
+                    ]);
+                    $newOrderItems->push($created);
+                }
+
+                $this->recalcTotals($order);
+
+                if ($validated['payment_status'] === 'paid' && ! empty($validated['payment_method'])) {
+                    $order->paymentSplits()->delete();
+                    $order->paymentSplits()->create([
+                        'payment_method' => $validated['payment_method'],
+                        'amount'         => $order->fresh()->total_price,
+                    ]);
+                    $order->update(['payment_status' => 'paid']);
+                } else {
+                    $order->paymentSplits()->delete();
+                    $order->update(['payment_status' => 'pending']);
+                }
+            });
+
+            \Log::info('orders.update: transaction committed', [
+                'order_id'        => $order->id,
+                'new_items_count' => $newOrderItems->count(),
+            ]);
+
+            $order->load(['user.customer', 'table', 'items.item']);
+            broadcast(new OrderItemsUpdated($order))->toOthers();
+
+            if ($cancelledLines->isNotEmpty()) {
+                $order->loadMissing('table');
+                app(CreatePrintJobsForOrder::class)->createCancellationTickets($order, $cancelledLines);
             }
 
-            // --- New catalog items ---
-            foreach ($validated['new_items'] ?? [] as $entry) {
-                $item = Item::findOrFail($entry['id']);
-                $price = $this->itemPriceForOrderType($item, $validated['order_type']);
-                $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
-
-                $created = $order->items()->create([
-                    'item_id'          => $item->id,
-                    'item_name'        => $item->name,
-                    'is_custom_item'   => false,
-                    'quantity'         => $entry['quantity'],
-                    'price'            => $price,
-                    'notes'            => $notes !== '' ? $notes : null,
-                    'orderItem_status' => 'pending',
-                    'source'           => 'new',
-                ]);
-                $created->setRelation('item', $item);
-                $newOrderItems->push($created);
+            if ($newOrderItems->isNotEmpty()) {
+                app(CreatePrintJobsForOrder::class)->createTicketJobs($order, $newOrderItems);
             }
 
-            // --- New one-time items ---
-            foreach ($validated['new_custom_items'] ?? [] as $entry) {
-                $notes = isset($entry['notes']) ? trim((string) $entry['notes']) : null;
+            \Log::info('orders.update: redirecting to orders.show', ['order_id' => $order->id]);
 
-                $created = $order->items()->create([
-                    'item_id'          => null,
-                    'item_name'        => trim($entry['name']),
-                    'is_custom_item'   => true,
-                    'quantity'         => (int) $entry['quantity'],
-                    'price'            => (float) $entry['price'],
-                    'notes'            => $notes !== '' ? $notes : null,
-                    'orderItem_status' => 'pending',
-                    'source'           => 'new',
-                ]);
-                $newOrderItems->push($created);
-            }
+            return redirect()->route('orders.show', $order)->with('success', 'Order updated.');
 
-            $this->recalcTotals($order);
-
-            // --- Payment sync (admin override — not a substitute for the checkout flow) ---
-            if ($validated['payment_status'] === 'paid' && ! empty($validated['payment_method'])) {
-                $order->paymentSplits()->delete();
-                $order->paymentSplits()->create([
-                    'payment_method' => $validated['payment_method'],
-                    'amount'         => $order->fresh()->total_price,
-                ]);
-                $order->update(['payment_status' => 'paid']);
-            } else {
-                $order->paymentSplits()->delete();
-                $order->update(['payment_status' => 'pending']);
-            }
-        });
-
-        $order->load(['user.customer', 'table', 'items.item']);
-        broadcast(new OrderItemsUpdated($order))->toOthers();
-
-        if ($cancelledLines->isNotEmpty()) {
-            $order->loadMissing('table');
-            app(CreatePrintJobsForOrder::class)->createCancellationTickets($order, $cancelledLines);
+        } catch (ValidationException $e) {
+            \Log::warning('orders.update: validation failed', [
+                'order_id' => $order->id,
+                'errors'   => $e->errors(),
+            ]);
+            throw $e;
+        } catch (\Throwable $e) {
+            \Log::error('orders.update: unexpected exception', [
+                'order_id' => $order->id,
+                'message'  => $e->getMessage(),
+                'file'     => $e->getFile(),
+                'line'     => $e->getLine(),
+            ]);
+            throw $e;
         }
-
-        if ($newOrderItems->isNotEmpty()) {
-            app(CreatePrintJobsForOrder::class)->createTicketJobs($order, $newOrderItems);
-        }
-
-        return redirect()->route('orders.show', $order)->with('success', 'Order updated.');
     }
 
     /**
