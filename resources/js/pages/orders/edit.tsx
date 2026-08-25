@@ -322,10 +322,9 @@ export default function OrderEdit({ order, categories, tables, customers }: Prop
         if (processing || !canSubmit) return;
         setProcessing(true);
 
-        router.post(
+        router.put(
             route('orders.update', order.id),
             {
-                _method: 'put',
                 order_type: orderType,
                 table_id: orderType === 'dine_in' ? tableId : null,
                 user_id: userId,

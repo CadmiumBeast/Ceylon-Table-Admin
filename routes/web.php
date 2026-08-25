@@ -92,7 +92,7 @@ Route::middleware(['auth', 'user-access:admin,staff'])->group(function () {
     Route::post('orders/{order}/add-items', [\App\Http\Controllers\OrderController::class, 'addItems'])->name('orders.add-items');
     Route::delete('orders/{order}/items/{orderItem}', [\App\Http\Controllers\OrderController::class, 'removeItem'])->name('orders.remove-item');
     Route::patch('orders/{order}/payment', [\App\Http\Controllers\OrderController::class, 'processPayment'])->name('orders.process-payment');
-    Route::post('/orders/{order}', [\App\Http\Controllers\OrderController::class, 'update'])->name('orders.update');
+    Route::put('/orders/{order}', [\App\Http\Controllers\OrderController::class, 'update'])->name('orders.update');
 
 });
 
