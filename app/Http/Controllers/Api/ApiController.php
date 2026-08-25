@@ -514,6 +514,8 @@ class ApiController extends Controller
             }
 
             $items = $request->get('items', []);
+            $newOrderItems = collect(); // <-- track what needs a ticket
+
             foreach ($items as $itemData) {
                 $existingItem = \App\Models\OrderItem::where('order_id', $orderId)
                     ->where('item_id', $itemData['item_id'])
@@ -526,7 +528,6 @@ class ApiController extends Controller
                     $newQty       = $itemData['quantity'];
                     $quantityDiff = $newQty - $originalQty;
 
-                    // Adjust stock
                     if ($item) {
                         if ($quantityDiff < 0) {
                             $item->increment('quantity', abs($quantityDiff));
@@ -538,29 +539,25 @@ class ApiController extends Controller
                         }
                     }
 
-                    // Check if item is already done — only update quantity, never reset status
                     $isFinished = in_array($existingItem->orderItem_status, ['ready', 'served', 'rejected']);
 
                     if ($isFinished && $newQty > $originalQty) {
-                        // Extra quantity added on top of a finished item → create a NEW pending row
                         $extraQty = $newQty - $originalQty;
-                        if ($item) {
-                            // Stock was already decremented above for full diff, so this is correct
-                        }
-                        \App\Models\OrderItem::create([
+
+                        $newLine = \App\Models\OrderItem::create([
                             'order_id'         => $orderId,
                             'item_id'          => $itemData['item_id'],
                             'quantity'         => $extraQty,
                             'price'            => $existingItem->price,
-                            'orderItem_status' => 'pending', // chef needs to cook these fresh
+                            'orderItem_status' => 'pending',
                         ]);
+                        $newLine->setRelation('item', $item);
+                        $newOrderItems->push($newLine); // <-- needs a ticket
                     } else {
-                        // Normal quantity update — preserve existing status
                         $existingItem->update(['quantity' => $newQty]);
                     }
 
                 } else {
-                    // Brand new item not in order yet
                     if ($item) {
                         if ($item->quantity < $itemData['quantity']) {
                             return response()->json(['error' => 'Not enough stock for item ID ' . $itemData['item_id']], 400);
@@ -568,17 +565,18 @@ class ApiController extends Controller
                         $item->decrement('quantity', $itemData['quantity']);
                     }
 
-                    \App\Models\OrderItem::create([
+                    $newLine = \App\Models\OrderItem::create([
                         'order_id'         => $orderId,
                         'item_id'          => $itemData['item_id'],
                         'quantity'         => $itemData['quantity'],
                         'price'            => $itemData['price'] ?? $item?->price,
                         'orderItem_status' => 'pending',
                     ]);
+                    $newLine->setRelation('item', $item);
+                    $newOrderItems->push($newLine); // <-- needs a ticket
                 }
             }
 
-            // Recalculate order totals
             $subtotal = \App\Models\OrderItem::where('order_id', $orderId)->sum(\DB::raw('quantity * price'));
             $total_price = $subtotal - $order->discount;
 
@@ -592,6 +590,12 @@ class ApiController extends Controller
 
             \Log::info('Broadcasting OrderItemsUpdated', ['order_id' => $order->id]);
             broadcast(new \App\Events\OrderItemsUpdated($order));
+
+            // <-- the actual fix: send new lines to the kitchen printers
+            if ($newOrderItems->isNotEmpty()) {
+                $order->loadMissing('table', 'user.customer');
+                app(\App\Listeners\CreatePrintJobsForOrder::class)->createTicketJobs($order, $newOrderItems);
+            }
 
             return response()->json(['message' => 'Order items updated']);
         } catch (\Exception $e) {
