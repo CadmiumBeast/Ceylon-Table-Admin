@@ -31,7 +31,6 @@ Route::middleware(['auth', 'user-access:admin'])->group(function () {
     Route::post('categories/{id}/disable', [\App\Http\Controllers\CategoryController::class, 'disable'])->name('categories.disable');
     Route::post('categories/{id}/enable', [\App\Http\Controllers\CategoryController::class, 'enable'])->name('categories.enable');
 
-    Route::put('/orders/{order}', [\App\Http\Controllers\OrderController::class, 'update'])->name('orders.update');
     Route::get('/orders/{order}/adminedit', [\App\Http\Controllers\OrderController::class, 'Orderedit'])->name('orders.adminedit');
 
 });
@@ -93,6 +92,8 @@ Route::middleware(['auth', 'user-access:admin,staff'])->group(function () {
     Route::post('orders/{order}/add-items', [\App\Http\Controllers\OrderController::class, 'addItems'])->name('orders.add-items');
     Route::delete('orders/{order}/items/{orderItem}', [\App\Http\Controllers\OrderController::class, 'removeItem'])->name('orders.remove-item');
     Route::patch('orders/{order}/payment', [\App\Http\Controllers\OrderController::class, 'processPayment'])->name('orders.process-payment');
+    Route::post('/orders/{order}', [\App\Http\Controllers\OrderController::class, 'update'])->name('orders.update');
+
 });
 
 Route::middleware(['auth', 'user-access:admin'])->group(function () {
