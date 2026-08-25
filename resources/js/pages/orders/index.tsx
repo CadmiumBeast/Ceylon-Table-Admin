@@ -4,7 +4,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEchoPublic } from '@laravel/echo-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import PaymentModal from './payment-modal';
 
 interface OrderItem {
@@ -71,8 +71,69 @@ export default function OrdersIndex({ orders }: Props) {
     const [printingId, setPrintingId] = useState<number | null>(null);
     const [paymentOrder, setPaymentOrder] = useState<Order | null>(null);
 
-    useEchoPublic('orders', ['.order.placed', '.order.status.updated'], () => {
-        router.reload({ only: ['orders'] });
+    // Maintain a local state of orders so we can patch them instantly via broadcasts
+    const [localOrders, setLocalOrders] = useState<Order[]>(orders);
+
+    // Sync local state if the main prop updates (e.g., via pagination or Inertia reload)
+    useEffect(() => {
+        setLocalOrders(orders);
+    }, [orders]);
+
+    // 1. New Order: We reload to grab full relationships (user, dates, payment splits)
+    useEchoPublic('orders', '.order.placed', () => {
+        router.reload({ only: ['orders'], preserveScroll: true, preserveState: true });
+    });
+
+    // 2. Order Status: Instantly update the order_status and payment_status locally
+    useEchoPublic('orders', '.order.status.updated', (e: any) => {
+        setLocalOrders((prev) =>
+            prev.map((o) =>
+                o.id === e.order_id
+                    ? { ...o, order_status: e.order_status, payment_status: e.payment_status }
+                    : o
+            )
+        );
+    });
+
+    // 3. Order Items Bulk Update: Map the broadcast payload format to our local interface
+    useEchoPublic('orders', '.order.items.updated', (e: any) => {
+        setLocalOrders((prev) =>
+            prev.map((o) => {
+                if (o.id === e.order_id) {
+                    return {
+                        ...o,
+                        total_price: e.total_price,
+                        items: e.items.map((i: any) => ({
+                            id: i.id,
+                            item: { name: i.name },
+                            quantity: i.quantity,
+                            price: i.price,
+                            orderItem_status: i.status,
+                        })),
+                    };
+                }
+                return o;
+            })
+        );
+    });
+
+    // 4. Individual Order Item Status Update: Find the item and patch its status
+    useEchoPublic('orders', '.order.item.status.updated', (e: any) => {
+        setLocalOrders((prev) =>
+            prev.map((o) => {
+                if (o.id === e.order_id) {
+                    return {
+                        ...o,
+                        items: o.items.map((item) =>
+                            item.id === e.order_item_id
+                                ? { ...item, orderItem_status: e.status }
+                                : item
+                        ),
+                    };
+                }
+                return o;
+            })
+        );
     });
 
     const markCompleted = (order: Order) => {
@@ -125,7 +186,7 @@ export default function OrdersIndex({ orders }: Props) {
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-semibold">Orders</h1>
                     <div className="flex items-center gap-3">
-                        <span className="text-sm text-muted-foreground">{orders.length} total</span>
+                        <span className="text-sm text-muted-foreground">{localOrders.length} total</span>
                         <Button asChild>
                             <Link href={route('orders.create')}>Create Order</Link>
                         </Button>
@@ -149,21 +210,19 @@ export default function OrdersIndex({ orders }: Props) {
                             </tr>
                         </thead>
                         <tbody>
-                            {orders.length === 0 ? (
+                            {localOrders.length === 0 ? (
                                 <tr>
                                     <td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
                                         No orders found.
                                     </td>
                                 </tr>
                             ) : (
-                                orders.map((order) => {
-                                    // FIXED: Relies on true payment status, and safely checks arrays
+                                localOrders.map((order) => {
                                     const isPaid = order.payment_status === 'paid';
                                     const isCompleted = order.order_status === 'completed';
                                     const isCancelled = order.order_status === 'cancelled';
                                     const isBusy = processingId === order.id;
 
-                                    // Safely consolidate splits for rendering
                                     const splits = order.payment_splits || order.paymentSplits || [];
                                     const hasSplits = splits.length > 0;
 
@@ -196,7 +255,6 @@ export default function OrdersIndex({ orders }: Props) {
                                             <td className="px-4 py-3 text-right">
                                                 <div className="flex flex-wrap justify-end gap-2">
 
-                                                    {/* Render multiple payment methods securely */}
                                                     {isPaid && hasSplits && (
                                                         <span className="block text-xs text-muted-foreground mt-1 w-full text-right mb-1">
                                                             {splits
@@ -205,7 +263,6 @@ export default function OrdersIndex({ orders }: Props) {
                                                         </span>
                                                     )}
 
-                                                    {/* FIXED: Added missing "Pay" button to trigger the modal */}
                                                     {!isPaid && !isCancelled && (
                                                         <Button
                                                             variant="secondary"
@@ -227,8 +284,6 @@ export default function OrdersIndex({ orders }: Props) {
                                                             Complete
                                                         </Button>
                                                     )}
-
-                                                    
 
                                                     {isAdmin && !isCompleted && !isCancelled && (
                                                         <Button
