@@ -19,6 +19,8 @@ class DailySalesReportService
     $orders = $this->baseQuery($date)->get();
 
     $splits = PaymentSplit::whereIn('order_id', $orders->pluck('id'))->get();
+    // Remove Orders where order_status is cancelled, but still have PaymentSplits (shouldn't happen, but just in case)
+    $orders = $orders->reject(fn ($order) => $order->order_status === 'cancelled' && $splits->where('order_id', $order->id)->isNotEmpty());
     $byMethod = $splits->groupBy(fn ($s) => strtolower(trim($s->payment_method)));
     $methodTotal = fn (string $method) => round($byMethod->get($method, collect())->sum('amount'), 2);
 

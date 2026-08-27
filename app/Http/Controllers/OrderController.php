@@ -264,6 +264,8 @@ class OrderController extends Controller
 
         $qtyToCancel = min($validated['quantity'] ?? $orderItem->quantity, $orderItem->quantity);
 
+
+
         if ($qtyToCancel >= $orderItem->quantity) {
             $orderItem->update(['orderItem_status' => 'cancelled']);
             $cancelledLine = $orderItem;
