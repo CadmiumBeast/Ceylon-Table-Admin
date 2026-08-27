@@ -70,7 +70,6 @@ class OrderController extends Controller
     public function indexCompleted()
     {
         $orders = Order::with(['user', 'table', 'items.item', 'paymentSplits'])
-            ->where('order_status', 'completed')
             ->where('payment_status', 'paid')
             ->orderByDesc('created_at')
             ->get();
