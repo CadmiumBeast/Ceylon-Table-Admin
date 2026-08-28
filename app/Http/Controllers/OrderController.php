@@ -164,8 +164,10 @@ class OrderController extends Controller
             }
         }
 
+        $startOfLocalDay = now('Asia/Colombo')->startOfDay()->utc();
+
         $lastOrder = Order::orderBy('id', 'desc')
-            ->where('created_at', '>=', now()->startOfDay())
+            ->where('created_at', '>=', $startOfLocalDay)
             ->first();
 
         if ($lastOrder) {
