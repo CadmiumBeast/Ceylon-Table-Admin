@@ -109,7 +109,7 @@ interface EditableExistingItem {
 }
 
 const ORDER_TYPES = [
-    { value: 'dine_in', label: 'Dine In' },
+    { value: 'dine-in', label: 'Dine In' },
     { value: 'takeaway', label: 'Takeaway' },
     { value: 'delivery', label: 'Delivery' },
     { value: 'uber', label: 'Uber Eats' },
