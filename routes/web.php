@@ -68,7 +68,7 @@ Route::middleware(['auth', 'user-access:admin,manager'])->group(function () {
 
 });
 Route::middleware(['auth', 'user-access:admin,manager,staff'])->group(function () {
-    Route::resource('customers', \App\Http\Controllers\CustomerController::class)->except(['show']);
+    Route::resource('customers', \App\Http\Controllers\CustomerController::class);
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
 

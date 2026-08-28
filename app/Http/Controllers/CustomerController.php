@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
@@ -13,13 +14,29 @@ use Inertia\Response;
 
 class CustomerController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $customers = User::query()
+        $sort = $request->query('sort', 'name_asc');
+
+        $query = User::query()
             ->where('type', 'customer')
-            ->with('customer')
-            ->latest()
-            ->get()
+            ->with('customer');
+
+        match ($sort) {
+            'name_asc'     => $query->orderBy('name'),
+            'name_desc'    => $query->orderByDesc('name'),
+            'joined_asc'   => $query->oldest(),
+            'joined_desc'  => $query->latest(),
+            'loyalty_desc' => $query->leftJoin('customers', 'customers.user_id', '=', 'users.id')
+                                      ->orderByDesc('customers.loyalty_points')
+                                      ->select('users.*'),
+            'loyalty_asc'  => $query->leftJoin('customers', 'customers.user_id', '=', 'users.id')
+                                      ->orderBy('customers.loyalty_points')
+                                      ->select('users.*'),
+            default        => $query->orderBy('name'),
+        };
+
+        $customers = $query->get()
             ->map(fn(User $user) => [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -37,6 +54,61 @@ class CustomerController extends Controller
 
         return Inertia::render('customers/index', [
             'customers' => $customers,
+            'sort' => $sort,
+        ]);
+    }
+
+    public function show(User $customer): Response
+    {
+        abort_if($customer->type !== 'customer', 404);
+
+        $customer->load('customer');
+
+        $orders = Order::with(['table', 'items.item', 'paymentSplits'])
+            ->where('user_id', $customer->id)
+            ->latest()
+            ->get()
+            ->map(fn(Order $order) => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'order_type' => $order->order_type,
+                'order_status' => $order->order_status,
+                'payment_status' => $order->payment_status,
+                'subtotal' => $order->subtotal,
+                'discount' => $order->discount,
+                'total_price' => $order->total_price,
+                'created_at' => $order->created_at,
+                'table' => $order->table ? ['name' => $order->table->name] : null,
+                'items' => $order->items->map(fn($item) => [
+                    'id' => $item->id,
+                    'item_name' => $item->item_name,
+                    'quantity' => $item->quantity,
+                    'price' => $item->price,
+                    'orderItem_status' => $item->orderItem_status,
+                ]),
+                'paymentSplits' => $order->paymentSplits->map(fn($p) => [
+                    'id' => $p->id,
+                    'payment_method' => $p->payment_method,
+                    'amount' => $p->amount,
+                ]),
+            ]);
+
+        return Inertia::render('customers/show', [
+            'customer' => [
+                'id' => $customer->id,
+                'name' => $customer->name,
+                'email' => $customer->email,
+                'created_at' => $customer->created_at,
+                'customer' => $customer->customer ? [
+                    'first_name' => $customer->customer->first_name,
+                    'last_name' => $customer->customer->last_name,
+                    'phone_number' => $customer->customer->phone_number,
+                    'address' => $customer->customer->address,
+                    'date_of_birth' => $customer->customer->date_of_birth,
+                    'loyalty_points' => $customer->customer->loyalty_points,
+                ] : null,
+            ],
+            'orders' => $orders,
         ]);
     }
 

@@ -1,6 +1,14 @@
+// resources/js/pages/customers/index.tsx
 import { Button } from '@/components/ui/button';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 
 interface CustomerProfile {
@@ -22,13 +30,31 @@ interface Customer {
 
 interface CustomersIndexProps {
     customers: Customer[];
+    sort: string;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Customers', href: '/customers' },
 ];
 
-export default function CustomersIndex({ customers }: CustomersIndexProps) {
+const SORT_OPTIONS = [
+    { value: 'name_asc', label: 'Name (A–Z)' },
+    { value: 'name_desc', label: 'Name (Z–A)' },
+    { value: 'joined_desc', label: 'Newest First' },
+    { value: 'joined_asc', label: 'Oldest First' },
+    { value: 'loyalty_desc', label: 'Loyalty Points (High–Low)' },
+    { value: 'loyalty_asc', label: 'Loyalty Points (Low–High)' },
+];
+
+export default function CustomersIndex({ customers, sort }: CustomersIndexProps) {
+    const handleSortChange = (value: string) => {
+        router.get(
+            route('customers.index'),
+            { sort: value },
+            { preserveState: true, preserveScroll: true, replace: true }
+        );
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Customers" />
@@ -36,9 +62,23 @@ export default function CustomersIndex({ customers }: CustomersIndexProps) {
             <div className="space-y-6 p-4">
                 <div className="flex items-center justify-between">
                     <h1 className="text-2xl font-semibold">Customers</h1>
-                    <Button asChild>
-                        <Link href={route('customers.create')}>Add Customer</Link>
-                    </Button>
+                    <div className="flex items-center gap-3">
+                        <Select value={sort} onValueChange={handleSortChange}>
+                            <SelectTrigger className="w-[220px]">
+                                <SelectValue placeholder="Sort by" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {SORT_OPTIONS.map((opt) => (
+                                    <SelectItem key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button asChild>
+                            <Link href={route('customers.create')}>Add Customer</Link>
+                        </Button>
+                    </div>
                 </div>
 
                 <div className="overflow-x-auto rounded-lg border bg-card shadow-xs">
@@ -57,7 +97,7 @@ export default function CustomersIndex({ customers }: CustomersIndexProps) {
                         <tbody>
                             {customers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                                    <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                                         No customers found.
                                     </td>
                                 </tr>
@@ -65,9 +105,14 @@ export default function CustomersIndex({ customers }: CustomersIndexProps) {
                                 customers.map((c) => (
                                     <tr key={c.id} className="border-t">
                                         <td className="px-4 py-3">
-                                            {c.customer
-                                                ? `${c.customer.first_name} ${c.customer.last_name}`
-                                                : c.name}
+                                            <Link
+                                                href={route('customers.show', c.id)}
+                                                className="font-medium hover:underline"
+                                            >
+                                                {c.customer
+                                                    ? `${c.customer.first_name} ${c.customer.last_name}`
+                                                    : c.name}
+                                            </Link>
                                         </td>
                                         <td className="px-4 py-3">{c.email}</td>
                                         <td className="px-4 py-3">{c.customer?.phone_number ?? '—'}</td>
@@ -76,6 +121,9 @@ export default function CustomersIndex({ customers }: CustomersIndexProps) {
                                         <td className="px-4 py-3">{c.customer?.loyalty_points ?? 0}</td>
                                         <td className="px-4 py-3 text-right">
                                             <Button variant="outline" size="sm" asChild>
+                                                <Link href={route('customers.show', c.id)}>View</Link>
+                                            </Button>
+                                            <Button variant="outline" size="sm" className="ml-2" asChild>
                                                 <Link href={route('customers.edit', c.id)}>Edit</Link>
                                             </Button>
                                             <Button variant="destructive" size="sm" className="ml-2" asChild>

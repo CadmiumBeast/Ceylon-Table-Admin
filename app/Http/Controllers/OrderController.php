@@ -629,7 +629,7 @@ class OrderController extends Controller
 
             $userId = $validated['user_id'] ?? $order->user_id;
 
-            if (! $userId && ! empty($validated['customer_name']) && ! empty($validated['customer_phone'])) {
+            if (! $userId &&  ! empty($validated['customer_phone'])) {
                 $existingCustomer = Customer::where('phone_number', $validated['customer_phone'])->first();
 
                 if ($existingCustomer) {
