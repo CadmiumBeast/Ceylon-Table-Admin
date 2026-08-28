@@ -27,6 +27,7 @@ interface OrderItem {
     item_name: string;
     quantity: number;
     price: string;
+    notes: string | null;
     orderItem_status: string;
 }
 
@@ -65,6 +66,20 @@ const statusVariant = (status: string) => {
             return 'destructive';
         default:
             return 'secondary';
+    }
+};
+
+const itemStatusVariant = (status: string) => {
+    switch (status) {
+        case 'served':
+        case 'ready':
+            return 'default';
+        case 'preparing':
+            return 'secondary';
+        case 'cancelled':
+            return 'destructive';
+        default: // pending
+            return 'outline';
     }
 };
 
@@ -139,55 +154,130 @@ export default function CustomersShow({ customer, orders }: CustomersShowProps) 
                     </div>
                 </div>
 
-                {/* Orders */}
+                {/* Orders — full detail card grid */}
                 <div>
                     <h2 className="mb-3 text-lg font-semibold">Order History</h2>
-                    <div className="overflow-x-auto rounded-lg border bg-card shadow-xs">
-                        <table className="w-full min-w-[800px] text-sm">
-                            <thead className="bg-muted/40 text-left">
-                                <tr>
-                                    <th className="px-4 py-3 font-medium">Order #</th>
-                                    <th className="px-4 py-3 font-medium">Type</th>
-                                    <th className="px-4 py-3 font-medium">Table</th>
-                                    <th className="px-4 py-3 font-medium">Status</th>
-                                    <th className="px-4 py-3 font-medium">Payment</th>
-                                    <th className="px-4 py-3 font-medium">Total</th>
-                                    <th className="px-4 py-3 font-medium">Date</th>
-                                    <th className="px-4 py-3 font-medium text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {orders.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
-                                            No orders yet.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    orders.map((o) => (
-                                        <tr key={o.id} className="border-t">
-                                            <td className="px-4 py-3 font-medium">{o.order_number}</td>
-                                            <td className="px-4 py-3 capitalize">{o.order_type.replace('_', ' ')}</td>
-                                            <td className="px-4 py-3">{o.table?.name ?? '—'}</td>
-                                            <td className="px-4 py-3">
-                                                <Badge variant={statusVariant(o.order_status)}>{o.order_status}</Badge>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <Badge variant={statusVariant(o.payment_status)}>{o.payment_status}</Badge>
-                                            </td>
-                                            <td className="px-4 py-3">Rs. {parseFloat(o.total_price).toFixed(2)}</td>
-                                            <td className="px-4 py-3">{new Date(o.created_at).toLocaleDateString()}</td>
-                                            <td className="px-4 py-3 text-right">
-                                                <Button variant="outline" size="sm" asChild>
-                                                    <Link href={route('orders.show', o.id)}>View</Link>
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+
+                    {orders.length === 0 ? (
+                        <div className="rounded-lg border bg-card p-8 text-center text-muted-foreground shadow-xs">
+                            No orders yet.
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            {orders.map((o) => (
+                                <div
+                                    key={o.id}
+                                    className="flex flex-col gap-4 rounded-lg border bg-card p-4 shadow-xs"
+                                >
+                                    {/* Header */}
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <p className="font-semibold">{o.order_number}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {new Date(o.created_at).toLocaleString()}
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-1">
+                                            <Badge variant={statusVariant(o.order_status)}>{o.order_status}</Badge>
+                                            <Badge variant={statusVariant(o.payment_status)}>{o.payment_status}</Badge>
+                                        </div>
+                                    </div>
+
+                                    {/* Meta */}
+                                    <div className="grid grid-cols-2 gap-2 text-sm">
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Type</p>
+                                            <p className="capitalize">{o.order_type.replace('_', ' ')}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Table</p>
+                                            <p>{o.table?.name ?? '—'}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Items */}
+                                    <div className="space-y-2 border-t pt-3">
+                                        <p className="text-xs font-medium text-muted-foreground">
+                                            Items ({o.items.length})
+                                        </p>
+                                        {o.items.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground">No items.</p>
+                                        ) : (
+                                            <ul className="space-y-2">
+                                                {o.items.map((item) => (
+                                                    <li key={item.id} className="text-sm">
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <div className="min-w-0">
+                                                                <div className="flex flex-wrap items-center gap-1.5">
+                                                                    <span className="font-medium">
+                                                                        {item.quantity}× {item.item_name}
+                                                                    </span>
+                                                                    <Badge
+                                                                        variant={itemStatusVariant(item.orderItem_status)}
+                                                                        className="shrink-0 text-[10px]"
+                                                                    >
+                                                                        {item.orderItem_status}
+                                                                    </Badge>
+                                                                </div>
+                                                                <p className="text-xs text-muted-foreground">
+                                                                    Rs. {parseFloat(item.price).toFixed(2)} each
+                                                                </p>
+                                                                {item.notes && (
+                                                                    <p className="text-xs italic text-muted-foreground">
+                                                                        Note: {item.notes}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                            <span className="shrink-0 tabular-nums font-medium">
+                                                                Rs. {(parseFloat(item.price) * item.quantity).toFixed(2)}
+                                                            </span>
+                                                        </div>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+                                    </div>
+
+                                    {/* Payment splits */}
+                                    {o.paymentSplits.length > 0 && (
+                                        <div className="space-y-1.5 border-t pt-3">
+                                            <p className="text-xs font-medium text-muted-foreground">Payment</p>
+                                            <ul className="space-y-1">
+                                                {o.paymentSplits.map((p) => (
+                                                    <li key={p.id} className="flex items-center justify-between text-sm">
+                                                        <span>{p.payment_method.replace('_', ' ')}</span>
+                                                        <span className="tabular-nums">Rs. {parseFloat(p.amount).toFixed(2)}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    {/* Totals */}
+                                    <div className="space-y-1 border-t pt-3 text-sm">
+                                        <div className="flex items-center justify-between text-muted-foreground">
+                                            <span>Subtotal</span>
+                                            <span className="tabular-nums">Rs. {parseFloat(o.subtotal).toFixed(2)}</span>
+                                        </div>
+                                        {parseFloat(o.discount) > 0 && (
+                                            <div className="flex items-center justify-between text-muted-foreground">
+                                                <span>Discount</span>
+                                                <span className="tabular-nums">- Rs. {parseFloat(o.discount).toFixed(2)}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center justify-between font-semibold">
+                                            <span>Total</span>
+                                            <span className="tabular-nums">Rs. {parseFloat(o.total_price).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+
+                                    <Button variant="outline" size="sm" asChild className="mt-auto">
+                                        <Link href={route('orders.show', o.id)}>View Full Order</Link>
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </AppLayout>

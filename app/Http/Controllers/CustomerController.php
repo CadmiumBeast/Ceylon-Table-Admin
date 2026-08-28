@@ -85,6 +85,7 @@ class CustomerController extends Controller
                     'quantity' => $item->quantity,
                     'price' => $item->price,
                     'orderItem_status' => $item->orderItem_status,
+                    'notes' => $item->notes,
                 ]),
                 'paymentSplits' => $order->paymentSplits->map(fn($p) => [
                     'id' => $p->id,
