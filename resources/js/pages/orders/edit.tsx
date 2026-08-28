@@ -315,7 +315,7 @@ export default function OrderEdit({ order, categories, tables, customers }: Prop
         : (categories.find((c) => c.id === selectedCategory)?.items ?? []);
 
     const hasAnyActiveLine = existingItems.some((e) => e.quantity > 0) || cart.length > 0 || customItems.length > 0;
-    const canSubmit = !isCancelled && (orderType !== 'dine_in' || tableId !== null) && hasAnyActiveLine;
+    const canSubmit = !isCancelled && (orderType !== 'dine-in' || tableId !== null) && hasAnyActiveLine;
 
 
     const handleSave = () => {
@@ -326,7 +326,7 @@ export default function OrderEdit({ order, categories, tables, customers }: Prop
             route('orders.update', order.id),
             {
                 order_type: orderType,
-                table_id: orderType === 'dine_in' ? tableId : null,
+                table_id: orderType === 'dine-in' ? tableId : null,
                 user_id: userId,
                 customer_name: customerName || undefined,
                 customer_phone: userId === null ? (phoneSearch || undefined) : undefined,
@@ -392,7 +392,7 @@ export default function OrderEdit({ order, categories, tables, customers }: Prop
                                             disabled={isCancelled}
                                             onClick={() => {
                                                 setOrderType(t.value);
-                                                if (t.value !== 'dine_in') setTableId(null);
+                                                if (t.value !== 'dine-in') setTableId(null);
                                             }}
                                             className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 ${
                                                 orderType === t.value
@@ -406,7 +406,7 @@ export default function OrderEdit({ order, categories, tables, customers }: Prop
                                 </div>
                             </div>
 
-                            {orderType === 'dine_in' && (
+                            {orderType === 'dine-in' && (
                                 <div>
                                     <p className="mb-2 text-sm font-medium text-muted-foreground">Table</p>
                                     <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
@@ -871,7 +871,7 @@ export default function OrderEdit({ order, categories, tables, customers }: Prop
                             </Button>
                             {!canSubmit && !isCancelled && (
                                 <p className="text-center text-xs text-muted-foreground">
-                                    {orderType === 'dine_in' && tableId === null
+                                    {orderType === 'dine-in' && tableId === null
                                         ? 'Select a table to continue.'
                                         : 'Add at least one item to save.'}
                                 </p>
