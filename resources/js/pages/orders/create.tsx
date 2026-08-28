@@ -84,7 +84,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const ORDER_TYPES = [
-    { value: 'dine_in', label: 'Dine In' },
+    { value: 'dine-in', label: 'Dine In' },
     { value: 'takeaway', label: 'Takeaway' },
     { value: 'delivery', label: 'Delivery' },
     { value: 'uber', label: 'Uber Eats' },
@@ -99,7 +99,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
     const [step, setStep] = useState<Step>(1);
 
     // Step 1
-    const [orderType, setOrderType] = useState<string>('dine_in');
+    const [orderType, setOrderType] = useState<string>('dine-in');
     const [tableId, setTableId] = useState<number | null>(null);
 
     // Step 2
@@ -270,7 +270,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
     const discountNum = Math.max(0, parseFloat(discount) || 0);
     const total = Math.max(0, subtotal + customSubtotal - discountNum);
 
-    const canStep1 = orderType !== '' && (orderType !== 'dine_in' || tableId !== null);
+    const canStep1 = orderType !== '' && (orderType !== 'dine-in' || tableId !== null);
     const canStep2 = cart.length > 0 || customItems.length > 0;
 
     const handleSubmit = () => {
@@ -344,7 +344,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                                         key={t.value}
                                         onClick={() => {
                                             setOrderType(t.value);
-                                            if (t.value !== 'dine_in') setTableId(null);
+                                            if (t.value !== 'dine-in') setTableId(null);
                                         }}
                                         className={`rounded-lg border px-6 py-3 text-sm font-medium transition-colors ${
                                             orderType === t.value
@@ -358,7 +358,7 @@ export default function CreateOrder({ categories, tables, customers }: Props) {
                             </div>
                         </div>
 
-                        {orderType === 'dine_in' && (
+                        {orderType === 'dine-in' && (
                             <div>
                                 <p className="text-sm font-medium mb-3">Select Table</p>
                                 {tables.length === 0 ? (

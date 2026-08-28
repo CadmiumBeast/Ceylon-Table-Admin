@@ -236,7 +236,7 @@ export default function AdminOrderEdit({ order, categories, tables, customers, p
 
         const payload = {
             ...data,
-            table_id: data.order_type === 'dine_in' ? data.table_id : null,
+            table_id: data.order_type === 'dine-in' ? data.table_id : null,
             existing_items: data.existing_items.map(({ id, quantity, notes, name, price }) => ({
                 id, quantity, notes, name, price
             })),
@@ -295,7 +295,7 @@ export default function AdminOrderEdit({ order, categories, tables, customers, p
                                         onChange={(e) => setData('order_type', e.target.value)}
                                         className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:ring-1 focus:ring-primary"
                                     >
-                                        <option value="dine_in">Dine In</option>
+                                        <option value="dine-in">Dine In</option>
                                         <option value="takeaway">Takeaway</option>
                                         <option value="delivery">Delivery</option>
                                         <option value="uber">Uber Eats</option>
@@ -334,7 +334,7 @@ export default function AdminOrderEdit({ order, categories, tables, customers, p
                                     </div>
                                 )}
 
-                                {data.order_type === 'dine_in' && (
+                                {data.order_type === 'dine-in' && (
                                     <div className={`space-y-1.5 ${data.payment_status === 'paid' ? 'col-span-2 md:col-span-3' : 'md:col-span-1 col-span-2'}`}>
                                         <label className="text-sm font-medium">Table</label>
                                         <select

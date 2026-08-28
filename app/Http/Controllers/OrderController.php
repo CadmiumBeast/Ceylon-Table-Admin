@@ -108,7 +108,7 @@ class OrderController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'order_type'     => 'required|in:dine_in,takeaway,delivery,uber,pickme',
+            'order_type'     => 'required|in:dine-in,takeaway,delivery,uber,pickme',
             'table_id'       => 'nullable|exists:tables,id',
             'user_id'        => 'nullable|exists:users,id',
             'customer_name'  => 'nullable|string|max:255',
@@ -619,7 +619,7 @@ class OrderController extends Controller
 
             \Log::info('orders.update: validation passed', ['order_id' => $order->id, 'validated' => $validated]);
 
-            if ($validated['order_type'] !== 'dine_in') {
+            if ($validated['order_type'] !== 'dine-in') {
                 $validated['table_id'] = null;
             } elseif (empty($validated['table_id'])) {
                 throw ValidationException::withMessages([
