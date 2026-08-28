@@ -589,7 +589,7 @@ class OrderController extends Controller
             }
 
             $validated = $request->validate([
-                'order_type'     => 'required|in:dine_in,takeaway,delivery,uber,pickme',
+                'order_type'     => 'required|in:dine-in,takeaway,delivery,uber,pickme',
                 'payment_status' => 'required|in:pending,paid',
                 'payment_method' => 'nullable|in:Cash,Visa,Master,Uber,Pickme,Bank_Transfer',
                 'table_id'       => 'nullable|exists:tables,id',
