@@ -663,7 +663,7 @@ class ApiController extends Controller
                 'order_status'   => 'completed',
                 'payment_method' => $paymentMethod,
                 'payment_status' => 'paid',
-                'customer_id'    => $customerId, // null if skipped
+                'user_id'    => $customerId, // null if skipped
             ]);
 
             $this->markTableAvailableForOrder($order);
