@@ -631,6 +631,7 @@ class ApiController extends Controller
                         'name'     => $request->get('customer_first_name') . ' ' . $request->get('customer_last_name'),
                         'email'    => 'customer_' . $phone . '_' . time() . '@ceylontable.com',
                         'password' => bcrypt('defaultpassword'),
+                        'type'     => 'customer',
                     ]);
 
                     $customer = \App\Models\Customer::create([
@@ -641,7 +642,7 @@ class ApiController extends Controller
                         'date_of_birth' => $request->get('customer_dob'),
                     ]);
 
-                    $customerId = $customer->id;
+                    $customerId = $user->id;
                 }
             }
 
