@@ -15,6 +15,7 @@ use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use App\Services\RewardService;
+use App\Services\OrderNumberService;
 
 
 
@@ -342,15 +343,7 @@ class ApiController extends Controller
             }
 
             //last order number
-            $lastOrder = \App\Models\Order::orderBy('id', 'desc')->first();
-            if ($lastOrder) {
-                $lastOrderNumber = $lastOrder->order_number;
-                $lastOrderNumber = str_replace('CTB-', '', $lastOrderNumber);
-                $lastOrderNumber = intval($lastOrderNumber);
-                $order_number = 'CTB-' . str_pad($lastOrderNumber + 1, 6, '0', STR_PAD_LEFT);
-            } else {
-                $order_number = 'CTB-000001';
-            }
+            $order_number = app(OrderNumberService::class)->next();
 
 
             $order = \App\Models\Order::create([
@@ -441,9 +434,7 @@ class ApiController extends Controller
             }
 
             // 2. Generate Order Number
-            $lastOrder = Order::orderBy('id', 'desc')->first();
-            $lastOrderNumber = $lastOrder ? intval(str_replace('CTB-', '', $lastOrder->order_number)) : 0;
-            $order_number = 'CTB-' . str_pad($lastOrderNumber + 1, 6, '0', STR_PAD_LEFT);
+            $order_number = app(OrderNumberService::class)->next();
 
             // 3. Determine Initial Status
             // If bank transfer, maybe it needs admin approval first before going to the kitchen

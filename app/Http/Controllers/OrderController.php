@@ -29,6 +29,7 @@ use App\Events\OrderItemsUpdated;
 use App\Events\PrintJobDispatched;
 use App\Listeners\CreatePrintJobsForOrder;
 use App\Services\RewardService;
+use App\Services\OrderNumberService;
 
 class OrderController extends Controller
 {
@@ -164,18 +165,7 @@ class OrderController extends Controller
             }
         }
 
-        $startOfLocalDay = now('Asia/Colombo')->startOfDay()->utc();
-
-        $lastOrder = Order::orderBy('id', 'desc')
-            ->where('created_at', '>=', $startOfLocalDay)
-            ->first();
-
-        if ($lastOrder) {
-            $lastOrderNumber = intval(str_replace('CTB-', '', $lastOrder->order_number));
-            $order_number = 'CTB-' . str_pad($lastOrderNumber + 1, 6, '0', STR_PAD_LEFT);
-        } else {
-            $order_number = 'CTB-000001';
-        }
+        $order_number = app(OrderNumberService::class)->next();
 
         $discount = (float) ($validated['discount'] ?? 0);
 
