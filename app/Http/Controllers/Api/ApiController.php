@@ -624,7 +624,7 @@ class ApiController extends Controller
 
                 if ($existingCustomer) {
                     // Use existing customer — no new User created
-                    $customerId = $existingCustomer->id;
+                    $customerId = $existingCustomer->user->id;
                 } else {
                     // Create a new User + Customer record
                     $user = User::create([
